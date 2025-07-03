@@ -4,3 +4,4 @@ __pycache__/*
 flattened_rollout_files/*
 prm_training_data/*
 merged_verification_files/*
+processed_full_verification_files/*
