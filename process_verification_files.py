@@ -97,19 +97,23 @@ def process_verification_results(merged_file_path: str, model_name: str, logger:
             item = json.loads(line)
             
             verification_response = item.get("verification_response", "")
-            conclusion_text = extract_conclusion(verification_response)
+            conclusion_pattern = re.compile(r'<conclusion>(.*?)</conclusion>', re.DOTALL)
+            conclusion_match = conclusion_pattern.search(verification_response)
             
-            if conclusion_text.lower() == "correct":
-                item[f"{model_name}_isVerified"] = True
-                stats["correct"] += 1
-            elif conclusion_text.lower() == "incorrect":
-                item[f"{model_name}_isVerified"] = False
-                stats["incorrect"] += 1
-            else:
-                if conclusion_text is None:
-                    logger.warning(f"No <conclusion> tags found for custom_id: {item['custom_id']}")
+            if conclusion_match:
+                conclusion_text = conclusion_match.group(1).strip()
+                if conclusion_text.lower() == "correct":
+                    item[f"{model_name}_isVerified"] = True
+                    stats["correct"] += 1
+                elif conclusion_text.lower() == "incorrect":
+                    item[f"{model_name}_isVerified"] = False
+                    stats["incorrect"] += 1
                 else:
                     logger.warning(f"Invalid conclusion text for custom_id: {item['custom_id']}: '{conclusion_text}'")
+                    stats["invalid"] += 1
+                    item[f"{model_name}_isVerified"] = None
+            else:
+                logger.warning(f"No <conclusion> tags found for custom_id: {item['custom_id']}: {verification_response}")
                 stats["invalid"] += 1
                 item[f"{model_name}_isVerified"] = None
             
