@@ -53,16 +53,21 @@ def load_json_file(file_path: str) -> List[Dict[str, Any]]:
 
 def validate_custom_ids(jsonl_data: Dict[str, Any], json_data: List[Dict[str, Any]], logger: logging.Logger) -> bool:
     """Validate that custom_ids match between JSONL and JSON data."""
-    json_ids = {item['custom_id'] for item in json_data}
+    json_ids = {item['custom_id'] for item in json_data} # we take the verification results as the reference since that is our limiting factor
     jsonl_ids = set(jsonl_data.keys())
     
+    logger.info(f"number of custom_ids in verification result JSON: {len(json_ids)}")
+    logger.info(f"number of custom_ids in Queries JSONL: {len(jsonl_ids)}")
+
     if jsonl_ids != json_ids:
         missing_in_json = jsonl_ids - json_ids
         missing_in_jsonl = json_ids - jsonl_ids
         if missing_in_json:
             logger.warning(f"custom_ids in Queries JSONL sent but not found in verification result JSON: {missing_in_json}")
-        if missing_in_jsonl:
+            logger.warning(f"number of missing verification results: {len(missing_in_json)}")
+        if missing_in_jsonl: # should not actually reach here
             logger.warning(f"custom_ids in verification result JSON sent but not found in Queries JSONL: {missing_in_jsonl}")
+            logger.warning(f"number of missing verification queries: {len(missing_in_jsonl)}")
         return False
     else:
         logger.info(f"All custom_ids match")
@@ -73,7 +78,7 @@ def merge_and_save_data(query_jsonl_data: Dict[str, Any], verification_result_js
     """Merge JSONL and JSON data and save to file."""
     with open(output_path, 'w') as f:
         for item in verification_result_json_data:
-            merged = {**query_jsonl_data[item['custom_id']], **item} # skipped if custom_id not found in verification result JSON, the "verification_response" key will just not exist in the resulting merged item
+            merged = {**query_jsonl_data[item['custom_id']], **item} # query is the base file. Merge is skipped if custom_id (intersection ID) not found in verification result JSON, the "verification_response" key will just not exist in the resulting merged item
             f.write(json.dumps(merged) + '\n')
     
         logger.info(f"Merged {len(verification_result_json_data)} items to {output_path}") # 
@@ -138,7 +143,7 @@ def process_model_verification(model: str, dataset_name: str, base_dir: str, out
     batch_query_jsonl_file = f"{base_dir}/flattened_verification_query_files/{dataset_name}_{model}_verification_flattened.jsonl"
     batch_verification_result_json_file = f"{base_dir}/flattened_verification_result_files/{dataset_name}_{model}_verification_flattened.json"
     merged_output_path = os.path.join(output_dir, f"{dataset_name}_{model}_verification_merged.jsonl")
-    final_output_path = f"{output_dir}/{dataset_name}_verification_processed_{model}.jsonl"
+    final_output_path = f"{output_dir}/{dataset_name}_final_verification_processed_{model}.jsonl"
     
     # Load data
     batch_query_data = load_jsonl_to_dict(batch_query_jsonl_file)
