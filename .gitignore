@@ -3,3 +3,4 @@ raw_rollouts/*
 __pycache__/*
 flattened_rollout_files/*
 prm_training_data/*
+merged_verification_files/*
