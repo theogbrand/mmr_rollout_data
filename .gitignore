@@ -5,4 +5,5 @@ flattened_rollout_files/*
 prm_training_data/*
 merged_verification_files/*
 processed_full_verification_files/*
-flattened_verification_files/*
+flattened_verification_query_files/*
+flattened_verification_result_files/*
