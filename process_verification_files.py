@@ -99,17 +99,17 @@ def process_verification_results(merged_file_path: str, model_name: str, logger:
             verification_response = item.get("verification_response", "")
             conclusion_text = extract_conclusion(verification_response)
             
-            if conclusion_text == "Correct":
+            if conclusion_text.lower() == "correct":
                 item[f"{model_name}_isVerified"] = True
                 stats["correct"] += 1
-            elif conclusion_text == "Incorrect":
+            elif conclusion_text.lower() == "incorrect":
                 item[f"{model_name}_isVerified"] = False
                 stats["incorrect"] += 1
             else:
                 if conclusion_text is None:
-                    logger.warning(f"No <conclusion> tags found on line {line_num}")
+                    logger.warning(f"No <conclusion> tags found for custom_id: {item['custom_id']}")
                 else:
-                    logger.warning(f"Invalid conclusion text on line {line_num}: '{conclusion_text}'")
+                    logger.warning(f"Invalid conclusion text for custom_id: {item['custom_id']}: '{conclusion_text}'")
                 stats["invalid"] += 1
                 item[f"{model_name}_isVerified"] = None
             
