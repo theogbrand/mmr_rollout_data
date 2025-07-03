@@ -69,15 +69,15 @@ def validate_custom_ids(jsonl_data: Dict[str, Any], json_data: List[Dict[str, An
         return True
 
 
-def merge_and_save_data(jsonl_data: Dict[str, Any], json_data: List[Dict[str, Any]], output_path: str, logger: logging.Logger) -> int:
+def merge_and_save_data(query_jsonl_data: Dict[str, Any], verification_result_json_data: List[Dict[str, Any]], output_path: str, logger: logging.Logger) -> int:
     """Merge JSONL and JSON data and save to file."""
     with open(output_path, 'w') as f:
-        for item in json_data:
-            merged = {**jsonl_data[item['custom_id']], **item}
+        for item in verification_result_json_data:
+            merged = {**query_jsonl_data[item['custom_id']], **item} # skipped if custom_id not found in verification result JSON, the "verification_response" key will just not exist in the resulting merged item
             f.write(json.dumps(merged) + '\n')
     
-    logger.info(f"Merged {len(json_data)} items to {output_path}")
-    return len(json_data)
+        logger.info(f"Merged {len(verification_result_json_data)} items to {output_path}") # 
+    return len(verification_result_json_data)
 
 
 def extract_conclusion(verification_response: str) -> Optional[str]:
@@ -96,7 +96,7 @@ def process_verification_results(merged_file_path: str, model_name: str, logger:
         for line_num, line in enumerate(f, 1):
             item = json.loads(line)
             
-            verification_response = item.get("verification_response", "")
+            verification_response = item.get("verification_response", "custom_id query has no corresponding verification response")
             conclusion_pattern = re.compile(r'<conclusion>(.*?)</conclusion>', re.DOTALL)
             conclusion_match = conclusion_pattern.search(verification_response)
             

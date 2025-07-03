@@ -7,3 +7,4 @@ merged_verification_files/*
 processed_full_verification_files/*
 flattened_verification_query_files/*
 flattened_verification_result_files/*
+process_verification_files_logs/*
