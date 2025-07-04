@@ -186,11 +186,10 @@ def merge_single_model_verification(rollout_item: Dict,
         # Extract the isVerified value using flexible key matching
         is_verified_value = None
         safe_model_name = get_safe_model_name(model_name)
-        is_verified_value = verification_sol[f"{safe_model_name}_isVerified"]
+        is_verified_value = verification_sol[f"{safe_model_name}_isVerified"] # in the extract_verification_solutions function, we already use safe_model_name to store the isVerified value instead of model_name
         
-        # Use safe column names (replace hyphens with underscores)
-        merged_fields[f"{safe_model_name}_verification_custom_id"] = verification_sol.get("custom_id")
-        merged_fields[f"{safe_model_name}_verification_solution"] = verification_sol.get("verification_response")
+        merged_fields[f"{safe_model_name}_verification_custom_id"] = verification_sol.get(f"{safe_model_name}_custom_id", f"ERROR: {model_name} custom_id not found at merge_single_model_verification step")
+        merged_fields[f"{safe_model_name}_verification_solution"] = verification_sol.get(f"{safe_model_name}_verification_response", f"ERROR: {model_name} verification_response not found at merge_single_model_verification step")
         merged_fields[f"{safe_model_name}_isVerified"] = is_verified_value
         
         stats[f"{safe_model_name}_with_verification"] += 1
@@ -640,7 +639,7 @@ def main():
     for model_name, filepath in verification_files.items():
         if os.path.exists(filepath):
             logger.info(f"Loading {model_name} verification data...")
-            verification_solutions_dict[model_name] = load_jsonl_file(filepath, logger)
+            verification_solutions_dict[model_name] = load_jsonl_file(filepath, logger) # every file is stored as a list of dictionaries containing the verification solutions as a single item
         else:
             logger.warning(f"{model_name} verification file not found: {filepath}")
     
@@ -653,7 +652,7 @@ def main():
     # Perform the merge
     merged_data = merge_rollout_with_multiple_verifications(
         full_raw_rollout_data_array,
-        verification_solutions_dict,
+        verification_solutions_dict, # contains the verification solutions for each model
         output_path,
         logger,
         check_collisions=True
