@@ -1,17 +1,72 @@
 import json
 import os
+import logging
+from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Any
 from collections import defaultdict
 
 
+def setup_logger(log_dir: str = "merge_verification_and_rollout_logs", 
+                log_level: int = logging.INFO) -> logging.Logger:
+    """
+    Set up logger with file and console handlers.
+    
+    Args:
+        log_dir: Directory to store log files
+        log_level: Logging level
+        
+    Returns:
+        Configured logger instance
+    """
+    # Create log directory if it doesn't exist
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Create logger
+    logger = logging.getLogger('merge_verification_rollout')
+    logger.setLevel(log_level)
+    
+    # Clear any existing handlers
+    logger.handlers.clear()
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Create file handler with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_filename = f"merge_verification_rollout_{timestamp}.log"
+    log_filepath = os.path.join(log_dir, log_filename)
+    
+    file_handler = logging.FileHandler(log_filepath)
+    file_handler.setLevel(log_level)
+    file_handler.setFormatter(formatter)
+    
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(formatter)
+    
+    # Add handlers to logger
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    logger.info(f"Logger initialized. Log file: {log_filepath}")
+    
+    return logger
+
+
 def check_for_collisions(verification_solutions: List[Dict], 
-                         full_raw_rollout_data_array: List[Dict]) -> Tuple[List, List, bool, bool]:
+                         full_raw_rollout_data_array: List[Dict],
+                         logger: logging.Logger) -> Tuple[List, List, bool, bool]:
     """
     Check for collision errors between verification solutions and rollout data.
     
     Args:
         verification_solutions: List of verification solution dicts
         full_raw_rollout_data_array: List of rollout data dicts
+        logger: Logger instance
         
     Returns:
         Tuple of (collision_errors, no_matches_array, has_collisions, has_no_matches)
@@ -43,6 +98,14 @@ def check_for_collisions(verification_solutions: List[Dict],
     
     has_collisions = len(collision_errors) > 0
     has_no_matches = len(no_matches_array) > 0
+    
+    if has_collisions:
+        logger.error(f"Found {len(collision_errors)} collision errors")
+        for error in collision_errors:
+            logger.error(f"  - {error['error']}")
+    
+    if has_no_matches:
+        logger.warning(f"Found {len(no_matches_array)} verification solutions with no matching rollout data")
     
     return collision_errors, no_matches_array, has_collisions, has_no_matches
 
@@ -147,6 +210,7 @@ def merge_rollout_with_multiple_verifications(
     full_raw_rollout_data_array: List[Dict],
     verification_solutions_dict: Dict[str, List[Dict]],
     output_path: str,
+    logger: logging.Logger,
     check_collisions: bool = True
 ) -> List[Dict]:
     """
@@ -157,6 +221,7 @@ def merge_rollout_with_multiple_verifications(
         verification_solutions_dict: Dict mapping model names to their verification solutions
                                    e.g., {"o4-mini": [...], "gpt-4.1-mini": [...], "gpt-4.1-nano": [...]}
         output_path: Path to save the merged output file
+        logger: Logger instance
         check_collisions: Whether to check for collisions before merging
         
     Returns:
@@ -165,28 +230,31 @@ def merge_rollout_with_multiple_verifications(
     # Check for collisions in each verification set if requested
     if check_collisions:
         for model_name, verification_solutions in verification_solutions_dict.items():
+            logger.info(f"Checking collisions for {model_name}...")
             collision_errors, no_matches, has_collisions, has_no_matches = check_for_collisions(
-                verification_solutions, full_raw_rollout_data_array
+                verification_solutions, full_raw_rollout_data_array, logger
             )
             
             if has_collisions:
                 raise ValueError(f"{model_name}: {len(collision_errors)} collision errors found. Cannot proceed with merge.")
             
             if has_no_matches:
-                print(f"⚠️  {model_name}: {len(no_matches)} verification solutions have no matching rollout data")
+                logger.warning(f"{model_name}: {len(no_matches)} verification solutions have no matching rollout data")
     
     # Create lookup dictionaries for each model's verification solutions
     verification_lookups = {}
     for model_name, verification_solutions in verification_solutions_dict.items():
         verification_lookups[model_name] = {sol["unique_key"]: sol for sol in verification_solutions}
+        logger.info(f"Created lookup for {model_name}: {len(verification_solutions)} items")
     
     # Initialize statistics
     stats = defaultdict(int)
     invalid_verification_values = []
     
     # Merge the data - iterate over rollout data as reference
+    logger.info(f"Starting merge of {len(full_raw_rollout_data_array)} rollout items...")
     merged_data = []
-    for rollout_item in full_raw_rollout_data_array:
+    for i, rollout_item in enumerate(full_raw_rollout_data_array):
         # Start with base rollout fields
         merged_item = {
             "response_uid": rollout_item["response_uid"],
@@ -206,25 +274,30 @@ def merge_rollout_with_multiple_verifications(
             merged_item.update(model_fields)
         
         merged_data.append(merged_item)
+        
+        # Log progress every 1000 items
+        if (i + 1) % 1000 == 0:
+            logger.info(f"Processed {i + 1}/{len(full_raw_rollout_data_array)} items")
     
     # Save to file
+    logger.info(f"Saving merged data to {output_path}")
     with open(output_path, 'w') as f:
         for item in merged_data:
             f.write(json.dumps(item) + '\n')
     
     # Print summary
-    print(f"\n✅ Successfully merged {len(merged_data)} items to {output_path}")
-    print(f"📊 Summary:")
-    print(f"   - Total rollouts: {len(merged_data)}")
+    logger.info(f"Successfully merged {len(merged_data)} items to {output_path}")
+    logger.info("Summary:")
+    logger.info(f"   - Total rollouts: {len(merged_data)}")
     
     for model_name in verification_solutions_dict.keys():
-        print(f"\n   {model_name}:")
-        print(f"     - With verification: {stats[f'{model_name}_with_verification']}")
-        print(f"     - Without verification: {stats[f'{model_name}_without_verification']}")
+        logger.info(f"\n   {model_name}:")
+        logger.info(f"     - With verification: {stats[f'{model_name}_with_verification']}")
+        logger.info(f"     - Without verification: {stats[f'{model_name}_without_verification']}")
     
     # Report invalid verification values by model
     if invalid_verification_values:
-        print(f"\n⚠️  INVALID VERIFICATION VALUES FOUND: {len(invalid_verification_values)} items total")
+        logger.warning(f"INVALID VERIFICATION VALUES FOUND: {len(invalid_verification_values)} items total")
         
         # Group by model
         invalid_by_model = defaultdict(list)
@@ -232,30 +305,44 @@ def merge_rollout_with_multiple_verifications(
             invalid_by_model[item['model']].append(item)
         
         for model_name, model_invalids in invalid_by_model.items():
-            print(f"\n   {model_name} ({len(model_invalids)} invalid values):")
+            logger.warning(f"\n   {model_name} ({len(model_invalids)} invalid values):")
             for item in model_invalids[:5]:  # Show first 5
-                print(f"     - custom_id: {item['verification_custom_id']}, "
-                      f"value: {item['isVerified_value']} (type: {item['type']})")
+                logger.warning(f"     - custom_id: {item['verification_custom_id']}, "
+                              f"value: {item['isVerified_value']} (type: {item['type']})")
             if len(model_invalids) > 5:
-                print(f"     ... and {len(model_invalids) - 5} more")
+                logger.warning(f"     ... and {len(model_invalids) - 5} more")
     else:
-        print(f"\n✅ All verification values are valid (True/False/None)")
+        logger.info("All verification values are valid (True/False/None)")
     
     return merged_data
 
 
-def load_jsonl_file(filepath: str) -> List[Dict]:
+def load_jsonl_file(filepath: str, logger: logging.Logger) -> List[Dict]:
     """Load a JSONL file and return list of dicts."""
     data = []
-    with open(filepath, 'r') as f:
-        for line in f:
-            data.append(json.loads(line.strip()))
+    try:
+        with open(filepath, 'r') as f:
+            for line_num, line in enumerate(f, 1):
+                try:
+                    data.append(json.loads(line.strip()))
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error at line {line_num} in {filepath}: {e}")
+                    continue
+        logger.info(f"Successfully loaded {len(data)} items from {filepath}")
+    except FileNotFoundError:
+        logger.error(f"File not found: {filepath}")
+        raise
+    except Exception as e:
+        logger.error(f"Error loading file {filepath}: {e}")
+        raise
+    
     return data
 
 
 def process_dataset(dataset_name: str, 
                    base_dir: str,
                    model_names: List[str],
+                   logger: logging.Logger,
                    verification_dir: str = "verification_files",
                    rollout_dir: str = "flattened_rollout_files",
                    output_dir: str = "processed_full_verification_files") -> List[Dict]:
@@ -266,6 +353,7 @@ def process_dataset(dataset_name: str,
         dataset_name: Name of the dataset (e.g., "AI2D")
         base_dir: Base directory containing all data
         model_names: List of model names to process
+        logger: Logger instance
         verification_dir: Subdirectory containing verification files
         rollout_dir: Subdirectory containing rollout files
         output_dir: Subdirectory for output files
@@ -277,17 +365,16 @@ def process_dataset(dataset_name: str,
     rollout_file = os.path.join(base_dir, rollout_dir, f"{dataset_name}_flattened.jsonl")
     
     # Load rollout data
-    print(f"\n{'='*60}")
-    print(f"Processing dataset: {dataset_name}")
-    print(f"{'='*60}")
-    print(f"Loading rollout data from: {rollout_file}")
+    logger.info("="*60)
+    logger.info(f"Processing dataset: {dataset_name}")
+    logger.info("="*60)
+    logger.info(f"Loading rollout data from: {rollout_file}")
     
     if not os.path.exists(rollout_file):
-        print(f"❌ Rollout file not found: {rollout_file}")
+        logger.error(f"Rollout file not found: {rollout_file}")
         return []
     
-    full_raw_rollout_data_array = load_jsonl_file(rollout_file)
-    print(f"✅ Loaded {len(full_raw_rollout_data_array)} rollout items")
+    full_raw_rollout_data_array = load_jsonl_file(rollout_file, logger)
     
     # Load verification solutions for each model
     verification_solutions_dict = {}
@@ -299,11 +386,10 @@ def process_dataset(dataset_name: str,
         )
         
         if os.path.exists(verification_file):
-            print(f"\nLoading {model_name} verification data...")
-            verification_solutions_dict[model_name] = load_jsonl_file(verification_file)
-            print(f"  ✅ Loaded {len(verification_solutions_dict[model_name])} verification items")
+            logger.info(f"\nLoading {model_name} verification data...")
+            verification_solutions_dict[model_name] = load_jsonl_file(verification_file, logger)
         else:
-            print(f"  ⚠️  {model_name} verification file not found: {verification_file}")
+            logger.warning(f"{model_name} verification file not found: {verification_file}")
             # Continue with empty list for this model
             verification_solutions_dict[model_name] = []
     
@@ -323,18 +409,20 @@ def process_dataset(dataset_name: str,
             full_raw_rollout_data_array,
             verification_solutions_dict,
             output_path,
+            logger,
             check_collisions=True
         )
-        print(f"\n✨ Successfully processed {dataset_name}! Output saved to: {output_path}")
+        logger.info(f"Successfully processed {dataset_name}! Output saved to: {output_path}")
         return merged_data
     except Exception as e:
-        print(f"\n❌ Error processing {dataset_name}: {str(e)}")
+        logger.error(f"Error processing {dataset_name}: {str(e)}")
         return []
 
 
 def process_multiple_datasets(dataset_names: List[str],
                             base_dir: str,
                             model_names: List[str],
+                            logger: logging.Logger,
                             **kwargs) -> Dict[str, List[Dict]]:
     """
     Process multiple datasets sequentially.
@@ -343,6 +431,7 @@ def process_multiple_datasets(dataset_names: List[str],
         dataset_names: List of dataset names to process
         base_dir: Base directory containing all data
         model_names: List of model names to process
+        logger: Logger instance
         **kwargs: Additional arguments to pass to process_dataset
         
     Returns:
@@ -350,140 +439,81 @@ def process_multiple_datasets(dataset_names: List[str],
     """
     results = {}
     
-    print(f"\n🚀 Starting batch processing of {len(dataset_names)} datasets")
-    print(f"   Models: {', '.join(model_names)}")
+    logger.info("="*60)
+    logger.info(f"Starting batch processing of {len(dataset_names)} datasets")
+    logger.info(f"   Models: {', '.join(model_names)}")
+    logger.info("="*60)
     
-    for dataset_name in dataset_names:
+    for i, dataset_name in enumerate(dataset_names, 1):
+        logger.info(f"\nProcessing dataset {i}/{len(dataset_names)}: {dataset_name}")
         merged_data = process_dataset(
             dataset_name, 
             base_dir, 
             model_names,
+            logger,
             **kwargs
         )
         results[dataset_name] = merged_data
     
     # Summary
-    print(f"\n{'='*60}")
-    print(f"BATCH PROCESSING COMPLETE")
-    print(f"{'='*60}")
+    logger.info("="*60)
+    logger.info("BATCH PROCESSING COMPLETE")
+    logger.info("="*60)
     successful = sum(1 for data in results.values() if len(data) > 0)
-    print(f"✅ Successfully processed: {successful}/{len(dataset_names)} datasets")
+    logger.info(f"Successfully processed: {successful}/{len(dataset_names)} datasets")
     
     for dataset_name, data in results.items():
         if len(data) > 0:
-            print(f"   - {dataset_name}: {len(data)} items")
+            logger.info(f"   - {dataset_name}: {len(data)} items")
         else:
-            print(f"   - {dataset_name}: ❌ Failed")
-    
-    return results
-
-
-def main():
-    """Example usage of the merge function."""
-    # Define paths
-    base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
-    rollout_file = os.path.join(base_dir, "flattened_rollout_files/AI2D_flattened.jsonl")
-    
-    # Load rollout data
-    print("Loading rollout data...")
-    full_raw_rollout_data_array = load_jsonl_file(rollout_file)
-    print(f"Loaded {len(full_raw_rollout_data_array)} rollout items")
-    
-    # Define verification files for each model
-    verification_files = {
-        "o4-mini": os.path.join(base_dir, "verification_files/AI2D_o4-mini_verification.jsonl"),
-        "gpt-4.1-mini": os.path.join(base_dir, "verification_files/AI2D_gpt-4.1-mini_verification.jsonl"),
-        "gpt-4.1-nano": os.path.join(base_dir, "verification_files/AI2D_gpt-4.1-nano_verification.jsonl")
-    }
-    
-    # Load verification solutions for each model
-    verification_solutions_dict = {}
-    for model_name, filepath in verification_files.items():
-        if os.path.exists(filepath):
-            print(f"Loading {model_name} verification data...")
-            verification_solutions_dict[model_name] = load_jsonl_file(filepath)
-            print(f"  Loaded {len(verification_solutions_dict[model_name])} verification items")
-        else:
-            print(f"⚠️  {model_name} verification file not found: {filepath}")
-    
-    # Define output path
-    output_path = os.path.join(
-        base_dir, 
-        "processed_full_verification_files/AI2D_final_all_models_merged.jsonl"
-    )
-    
-    # Perform the merge
-    merged_data = merge_rollout_with_multiple_verifications(
-        full_raw_rollout_data_array,
-        verification_solutions_dict,
-        output_path,
-        check_collisions=True
-    )
-    
-    print(f"\n✨ Merge complete! Output saved to: {output_path}")
-
-
-def example_batch_processing():
-    """Example of processing multiple datasets."""
-    base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
-    
-    # Define datasets to process
-    dataset_names = ["AI2D", "ChartQA", "DocVQA", "InfographicVQA"]
-    
-    # Define models to include
-    model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
-    
-    # Process all datasets
-    results = process_multiple_datasets(
-        dataset_names,
-        base_dir,
-        model_names
-    )
+            logger.error(f"   - {dataset_name}: Failed")
     
     return results
 
 
 def test_single_dataset():
     """Test processing a single dataset."""
+    logger = setup_logger()
+    
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     dataset_name = "AI2D"
     model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
     
-    print("🧪 Testing single dataset processing...")
+    logger.info("🧪 Testing single dataset processing...")
     merged_data = process_dataset(
         dataset_name,
         base_dir,
-        model_names
+        model_names,
+        logger
     )
     
     if merged_data:
-        print(f"\n📋 Sample merged item structure:")
-        print(json.dumps(merged_data[0], indent=2))
+        logger.info("📋 Sample merged item structure:")
+        logger.info(json.dumps(merged_data[0], indent=2))
     
     return merged_data
 
 
-def verify_merge_output(merged_file_path: str):
+def verify_merge_output(merged_file_path: str, logger: logging.Logger):
     """Verify the structure and content of merged output file."""
-    print(f"\n🔍 Verifying merged output: {merged_file_path}")
+    logger.info(f"🔍 Verifying merged output: {merged_file_path}")
     
     if not os.path.exists(merged_file_path):
-        print("❌ File not found!")
+        logger.error("File not found!")
         return
     
     # Load and analyze the data
-    data = load_jsonl_file(merged_file_path)
-    print(f"✅ Loaded {len(data)} items")
+    data = load_jsonl_file(merged_file_path, logger)
     
     if not data:
         return
     
     # Analyze first item structure
     first_item = data[0]
-    print("\n📊 Field structure:")
+    logger.info("📊 Field structure:")
     for key in sorted(first_item.keys()):
         value_type = type(first_item[key]).__name__
-        print(f"   - {key}: {value_type}")
+        logger.info(f"   - {key}: {value_type}")
     
     # Count verification coverage for each model
     model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
@@ -504,17 +534,86 @@ def verify_merge_output(merged_file_path: str):
             else:
                 coverage_stats[model]["no_data"] += 1
     
-    print("\n📈 Verification coverage by model:")
+    logger.info("📈 Verification coverage by model:")
     for model, stats in coverage_stats.items():
         total_with_data = stats["verified"] + stats["not_verified"]
-        print(f"\n   {model}:")
-        print(f"     - Items with verification: {total_with_data}")
-        print(f"     - Verified as correct: {stats['verified']}")
-        print(f"     - Verified as incorrect: {stats['not_verified']}")
-        print(f"     - No verification data: {stats['no_data']}")
+        logger.info(f"\n   {model}:")
+        logger.info(f"     - Items with verification: {total_with_data}")
+        logger.info(f"     - Verified as correct: {stats['verified']}")
+        logger.info(f"     - Verified as incorrect: {stats['not_verified']}")
+        logger.info(f"     - No verification data: {stats['no_data']}")
         if total_with_data > 0:
             accuracy = (stats["verified"] / total_with_data) * 100
-            print(f"     - Verification accuracy: {accuracy:.2f}%")
+            logger.info(f"     - Verification accuracy: {accuracy:.2f}%")
+
+
+def example_batch_processing():
+    """Example of processing multiple datasets."""
+    logger = setup_logger()
+    
+    base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
+    
+    # Define datasets to process
+    dataset_names = ["AI2D", "ChartQA", "DocVQA", "InfographicVQA"]
+    
+    # Define models to include
+    model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
+    
+    # Process all datasets
+    results = process_multiple_datasets(
+        dataset_names,
+        base_dir,
+        model_names,
+        logger
+    )
+    
+    return results
+
+
+def main():
+    """Example usage of the merge function."""
+    logger = setup_logger()
+    
+    # Define paths
+    base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
+    rollout_file = os.path.join(base_dir, "flattened_rollout_files/AI2D_flattened.jsonl")
+    
+    # Load rollout data
+    logger.info("Loading rollout data...")
+    full_raw_rollout_data_array = load_jsonl_file(rollout_file, logger)
+    
+    # Define verification files for each model
+    verification_files = {
+        "o4-mini": os.path.join(base_dir, "verification_files/AI2D_o4-mini_verification.jsonl"),
+        "gpt-4.1-mini": os.path.join(base_dir, "verification_files/AI2D_gpt-4.1-mini_verification.jsonl"),
+        "gpt-4.1-nano": os.path.join(base_dir, "verification_files/AI2D_gpt-4.1-nano_verification.jsonl")
+    }
+    
+    # Load verification solutions for each model
+    verification_solutions_dict = {}
+    for model_name, filepath in verification_files.items():
+        if os.path.exists(filepath):
+            logger.info(f"Loading {model_name} verification data...")
+            verification_solutions_dict[model_name] = load_jsonl_file(filepath, logger)
+        else:
+            logger.warning(f"{model_name} verification file not found: {filepath}")
+    
+    # Define output path
+    output_path = os.path.join(
+        base_dir, 
+        "processed_full_verification_files/AI2D_final_all_models_merged.jsonl"
+    )
+    
+    # Perform the merge
+    merged_data = merge_rollout_with_multiple_verifications(
+        full_raw_rollout_data_array,
+        verification_solutions_dict,
+        output_path,
+        logger,
+        check_collisions=True
+    )
+    
+    logger.info(f"Merge complete! Output saved to: {output_path}")
 
 
 if __name__ == "__main__":
@@ -530,7 +629,8 @@ if __name__ == "__main__":
         elif sys.argv[1] == "verify":
             # Verify a specific output file
             if len(sys.argv) > 2:
-                verify_merge_output(sys.argv[2])
+                logger = setup_logger()
+                verify_merge_output(sys.argv[2], logger)
             else:
                 print("Usage: python script.py verify <path_to_merged_file>")
     else:

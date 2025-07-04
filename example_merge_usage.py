@@ -4,20 +4,24 @@ Example usage of the merge_rollout_and_verification_files module.
 This script demonstrates how to merge rollout data with verification solutions from multiple models.
 """
 
+import logging
 from merge_rollout_and_verification_files import (
     process_dataset,
     process_multiple_datasets,
     verify_merge_output,
     load_jsonl_file,
-    merge_rollout_with_multiple_verifications
+    merge_rollout_with_multiple_verifications,
+    setup_logger
 )
 
 
 def example_1_single_dataset():
     """Example 1: Process a single dataset with verification from 3 models."""
-    print("=" * 80)
-    print("EXAMPLE 1: Processing single dataset (AI2D)")
-    print("=" * 80)
+    logger = setup_logger()
+    
+    logger.info("=" * 80)
+    logger.info("EXAMPLE 1: Processing single dataset (AI2D)")
+    logger.info("=" * 80)
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     dataset_name = "AI2D"
@@ -28,6 +32,7 @@ def example_1_single_dataset():
         dataset_name=dataset_name,
         base_dir=base_dir,
         model_names=model_names,
+        logger=logger,
         verification_dir="verification_files",
         rollout_dir="flattened_rollout_files",
         output_dir="processed_full_verification_files"
@@ -35,16 +40,18 @@ def example_1_single_dataset():
     
     # Verify the output
     output_file = f"{base_dir}/processed_full_verification_files/{dataset_name}_final_all_models_merged.jsonl"
-    verify_merge_output(output_file)
+    verify_merge_output(output_file, logger)
     
     return merged_data
 
 
 def example_2_batch_processing():
     """Example 2: Process multiple datasets in batch."""
-    print("\n" + "=" * 80)
-    print("EXAMPLE 2: Batch processing multiple datasets")
-    print("=" * 80)
+    logger = setup_logger()
+    
+    logger.info("=" * 80)
+    logger.info("EXAMPLE 2: Batch processing multiple datasets")
+    logger.info("=" * 80)
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     
@@ -64,7 +71,8 @@ def example_2_batch_processing():
     results = process_multiple_datasets(
         dataset_names=dataset_names,
         base_dir=base_dir,
-        model_names=model_names
+        model_names=model_names,
+        logger=logger
     )
     
     return results
@@ -72,22 +80,23 @@ def example_2_batch_processing():
 
 def example_3_custom_merge():
     """Example 3: Custom merge with manual file loading."""
-    print("\n" + "=" * 80)
-    print("EXAMPLE 3: Custom merge with manual control")
-    print("=" * 80)
+    logger = setup_logger()
+    
+    logger.info("=" * 80)
+    logger.info("EXAMPLE 3: Custom merge with manual control")
+    logger.info("=" * 80)
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     
     # Load rollout data manually
     rollout_file = f"{base_dir}/flattened_rollout_files/AI2D_flattened.jsonl"
-    rollout_data = load_jsonl_file(rollout_file)
-    print(f"Loaded {len(rollout_data)} rollout items")
+    rollout_data = load_jsonl_file(rollout_file, logger)
     
     # Load verification files manually
     verification_solutions_dict = {
-        "o4-mini": load_jsonl_file(f"{base_dir}/verification_files/AI2D_o4-mini_verification.jsonl"),
-        "gpt-4.1-mini": load_jsonl_file(f"{base_dir}/verification_files/AI2D_gpt-4.1-mini_verification.jsonl"),
-        "gpt-4.1-nano": load_jsonl_file(f"{base_dir}/verification_files/AI2D_gpt-4.1-nano_verification.jsonl")
+        "o4-mini": load_jsonl_file(f"{base_dir}/verification_files/AI2D_o4-mini_verification.jsonl", logger),
+        "gpt-4.1-mini": load_jsonl_file(f"{base_dir}/verification_files/AI2D_gpt-4.1-mini_verification.jsonl", logger),
+        "gpt-4.1-nano": load_jsonl_file(f"{base_dir}/verification_files/AI2D_gpt-4.1-nano_verification.jsonl", logger)
     }
     
     # Custom output path
@@ -98,6 +107,7 @@ def example_3_custom_merge():
         full_raw_rollout_data_array=rollout_data,
         verification_solutions_dict=verification_solutions_dict,
         output_path=output_path,
+        logger=logger,
         check_collisions=True
     )
     
@@ -106,9 +116,11 @@ def example_3_custom_merge():
 
 def example_4_partial_models():
     """Example 4: Process with only some models available."""
-    print("\n" + "=" * 80)
-    print("EXAMPLE 4: Processing with partial model coverage")
-    print("=" * 80)
+    logger = setup_logger()
+    
+    logger.info("=" * 80)
+    logger.info("EXAMPLE 4: Processing with partial model coverage")
+    logger.info("=" * 80)
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     dataset_name = "AI2D"
@@ -120,7 +132,8 @@ def example_4_partial_models():
     merged_data = process_dataset(
         dataset_name=dataset_name,
         base_dir=base_dir,
-        model_names=model_names
+        model_names=model_names,
+        logger=logger
     )
     
     return merged_data
@@ -128,17 +141,19 @@ def example_4_partial_models():
 
 def example_5_analyze_results():
     """Example 5: Analyze merged results."""
-    print("\n" + "=" * 80)
-    print("EXAMPLE 5: Analyzing merged results")
-    print("=" * 80)
+    logger = setup_logger()
+    
+    logger.info("=" * 80)
+    logger.info("EXAMPLE 5: Analyzing merged results")
+    logger.info("=" * 80)
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     merged_file = f"{base_dir}/processed_full_verification_files/AI2D_final_all_models_merged.jsonl"
     
     # Load the merged data
-    data = load_jsonl_file(merged_file)
+    data = load_jsonl_file(merged_file, logger)
     
-    print(f"\nTotal items: {len(data)}")
+    logger.info(f"Total items: {len(data)}")
     
     # Analyze agreement between models
     agreement_stats = {
@@ -166,12 +181,12 @@ def example_5_analyze_results():
         else:
             agreement_stats["disagreement"] += 1
     
-    print("\n📊 Model Agreement Analysis:")
+    logger.info("📊 Model Agreement Analysis:")
     for stat, count in agreement_stats.items():
-        print(f"   - {stat}: {count}")
+        logger.info(f"   - {stat}: {count}")
     
     # Find examples of disagreement
-    print("\n🔍 Examples of model disagreement (first 3):")
+    logger.info("🔍 Examples of model disagreement (first 3):")
     disagreement_count = 0
     for item in data:
         verifications = {}
@@ -183,10 +198,10 @@ def example_5_analyze_results():
         if len(verifications) >= 2 and len(set(verifications.values())) > 1:
             disagreement_count += 1
             if disagreement_count <= 3:
-                print(f"\n   Response UID: {item['response_uid']}")
-                print(f"   Response: {item['rollout_response'][:100]}...")
+                logger.info(f"\n   Response UID: {item['response_uid']}")
+                logger.info(f"   Response: {item['rollout_response'][:100]}...")
                 for model, verdict in verifications.items():
-                    print(f"   - {model}: {verdict}")
+                    logger.info(f"   - {model}: {verdict}")
 
 
 if __name__ == "__main__":
@@ -209,7 +224,8 @@ if __name__ == "__main__":
             print("Usage: python example_merge_usage.py [1|2|3|4|5]")
     else:
         # Run all examples
-        print("Running all examples...")
+        logger = setup_logger()
+        logger.info("Running all examples...")
         example_1_single_dataset()
         # example_2_batch_processing()  # Commented out to avoid processing all datasets
         # example_3_custom_merge()
