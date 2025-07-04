@@ -2,6 +2,7 @@ import json
 import os
 import logging
 from datetime import datetime
+import re
 from typing import Dict, List, Tuple, Optional, Any
 from collections import defaultdict
 
@@ -340,6 +341,48 @@ def load_jsonl_file(filepath: str, logger: logging.Logger) -> List[Dict]:
     return data
 
 
+def extract_verification_solutions(merged_verification_file: str, model_name: str, logger: logging.Logger) -> List[Dict]:
+    """
+    Extract verification solutions from a verification file.
+    """
+    verification_solutions = []
+    single_tag_custom_ids = []
+    no_tag_custom_ids = []
+    solution_pattern = re.compile(r'<solution>(.*?)</solution>', re.DOTALL) # we are using the solution sent to be verified as the intersection key (see README.md for more details)
+
+    with open(merged_verification_file, 'r') as f:
+        for line_num, line in enumerate(f, 1):
+            item = json.loads(line)
+            try:
+                text = item["body"]["messages"][0]["content"][0]["text"] # this is from verification query request, not the verification response
+                # Find all matches and get the second one because the first one is the prompt question, the second one is the actual solution
+                matches = solution_pattern.findall(text)
+                if len(matches) >= 2:
+                    solution_text = matches[1].strip()  # Get second occurrence
+                    if solution_text:  # Only add non-empty verification_solutions 
+                        verification_solutions.append({
+                            f"{model_name}_custom_id": item.get("custom_id", f"ERROR: {model_name} custom_id not found"),
+                            "unique_key": solution_text, # using the solution as the intersection key
+                            f"{model_name}_verification_response": item.get(f"verification_response", f"ERROR: {model_name} verification_response not found"),
+                            f"{model_name}_isVerified": item.get(f"{model_name}_isVerified", f"ERROR: {model_name} isVerified not found")
+                        })
+                elif len(matches) == 1:
+                    custom_id = item.get("custom_id", f"ERROR: {model_name} custom_id not found")
+                    single_tag_custom_ids.append(custom_id)
+                    logger.warning(f"Warning: Only one <solution> tag found in line {line_num} for {model_name}")
+                else:
+                    custom_id = item.get("custom_id", f"ERROR: {model_name} custom_id not found")
+                    no_tag_custom_ids.append(custom_id)
+                    logger.warning(f"Warning: No <solution> tags found in line {line_num} for {model_name}")
+            except (KeyError, IndexError, TypeError) as e:
+                logger.error(f"Error accessing text in line {line_num}: {e}")
+
+        logger.info(f"Extracted {len(verification_solutions)} valid verification_solutions")
+        logger.info(f"Found {len(single_tag_custom_ids)} items with only one solution tag: {single_tag_custom_ids}")
+        logger.info(f"Found {len(no_tag_custom_ids)} items with no solution tags: {no_tag_custom_ids}")
+        return verification_solutions
+
+
 def process_dataset(dataset_name: str, 
                    base_dir: str,
                    model_names: List[str],
@@ -380,15 +423,16 @@ def process_dataset(dataset_name: str,
     # Load verification solutions for each model
     verification_solutions_dict = {}
     for model_name in model_names:
+        safe_model_name = get_safe_model_name(model_name)
         verification_file = os.path.join(
             base_dir, 
             verification_dir, 
-            f"{dataset_name}_{model_name}_verification_merged.jsonl"
+            f"{dataset_name}_final_verification_processed_{model_name}.jsonl"
         )
         
         if os.path.exists(verification_file):
             logger.info(f"\nLoading {model_name} verification data...")
-            verification_solutions_dict[model_name] = load_jsonl_file(verification_file, logger)
+            verification_solutions_dict[model_name] = extract_verification_solutions(verification_file, safe_model_name, logger)
         else:
             logger.warning(f"{model_name} verification file not found: {verification_file}")
             # Continue with empty list for this model
@@ -586,9 +630,9 @@ def main():
     
     # Define verification files for each model
     verification_files = {
-        "o4-mini": os.path.join(base_dir, "verification_files/AI2D_o4-mini_verification.jsonl"),
-        "gpt-4.1-mini": os.path.join(base_dir, "verification_files/AI2D_gpt-4.1-mini_verification.jsonl"),
-        "gpt-4.1-nano": os.path.join(base_dir, "verification_files/AI2D_gpt-4.1-nano_verification.jsonl")
+        "o4-mini": os.path.join(base_dir, "merged_verification_files/AI2D_o4-mini_final_verification_processed_o4-mini.jsonl"),
+        "gpt-4.1-mini": os.path.join(base_dir, "merged_verification_files/AI2D_gpt-4.1-mini_final_verification_processed_gpt-4.1-mini.jsonl"),
+        "gpt-4.1-nano": os.path.join(base_dir, "merged_verification_files/AI2D_gpt-4.1-nano_final_verification_processed_gpt-4.1-nano.jsonl")
     }
     
     # Load verification solutions for each model
