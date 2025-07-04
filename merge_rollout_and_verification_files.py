@@ -6,6 +6,11 @@ from typing import Dict, List, Tuple, Optional, Any
 from collections import defaultdict
 
 
+def get_safe_model_name(model_name: str) -> str:
+    """Convert model name to safe format for column names by replacing hyphens with underscores."""
+    return model_name.replace("-", "_")
+
+
 def setup_logger(log_dir: str = "merge_verification_and_rollout_logs", 
                 log_level: int = logging.INFO) -> logging.Logger:
     """
@@ -126,19 +131,14 @@ def validate_verification_value(verification_sol: Dict, model_name: str) -> Opti
     is_verified_value = None
     is_verified_key = None
     
-    # First try the model-specific key
-    model_specific_key = f"{model_name}_isVerified"
-    if model_specific_key in verification_sol:
-        is_verified_key = model_specific_key
-        is_verified_value = verification_sol[model_specific_key]
-    # Then try generic key
-    elif "isVerified" in verification_sol:
-        is_verified_key = "isVerified"
-        is_verified_value = verification_sol["isVerified"]
-    # For o4-mini, also check the exact field name from the original code
-    elif model_name == "o4-mini" and "o4-mini_isVerified" in verification_sol:
-        is_verified_key = "o4-mini_isVerified"
-        is_verified_value = verification_sol["o4-mini_isVerified"]
+    # Get safe model name for consistent field naming
+    safe_model_name = get_safe_model_name(model_name)
+    
+    # First try the safe model-specific key
+    safe_model_key = f"{safe_model_name}_isVerified"
+    if safe_model_key in verification_sol:
+        is_verified_key = safe_model_key
+        is_verified_value = verification_sol[safe_model_key]
     
     if is_verified_value not in [True, False, None]:
         return {
@@ -184,24 +184,24 @@ def merge_single_model_verification(rollout_item: Dict,
         
         # Extract the isVerified value using flexible key matching
         is_verified_value = None
-        # Try model-specific key first
-        for key in [f"{model_name}_isVerified", "isVerified", "o4-mini_isVerified"]:
-            if key in verification_sol:
-                is_verified_value = verification_sol[key]
-                break
+        safe_model_name = get_safe_model_name(model_name)
+        is_verified_value = verification_sol[f"{safe_model_name}_isVerified"]
         
-        merged_fields[f"{model_name}_verification_custom_id"] = verification_sol.get("custom_id")
-        merged_fields[f"{model_name}_verification_solution"] = verification_sol.get("verification_response")
-        merged_fields[f"{model_name}_isVerified"] = is_verified_value
+        # Use safe column names (replace hyphens with underscores)
+        merged_fields[f"{safe_model_name}_verification_custom_id"] = verification_sol.get("custom_id")
+        merged_fields[f"{safe_model_name}_verification_solution"] = verification_sol.get("verification_response")
+        merged_fields[f"{safe_model_name}_isVerified"] = is_verified_value
         
-        stats[f"{model_name}_with_verification"] += 1
+        stats[f"{safe_model_name}_with_verification"] += 1
     else:
         # No matching verification solution found
-        merged_fields[f"{model_name}_verification_custom_id"] = None
-        merged_fields[f"{model_name}_verification_solution"] = None
-        merged_fields[f"{model_name}_isVerified"] = None
+        safe_model_name = get_safe_model_name(model_name)
         
-        stats[f"{model_name}_without_verification"] += 1
+        merged_fields[f"{safe_model_name}_verification_custom_id"] = None
+        merged_fields[f"{safe_model_name}_verification_solution"] = None
+        merged_fields[f"{safe_model_name}_isVerified"] = None
+        
+        stats[f"{safe_model_name}_without_verification"] += 1
     
     return merged_fields
 
@@ -291,9 +291,10 @@ def merge_rollout_with_multiple_verifications(
     logger.info(f"   - Total rollouts: {len(merged_data)}")
     
     for model_name in verification_solutions_dict.keys():
+        safe_model_name = get_safe_model_name(model_name)
         logger.info(f"\n   {model_name}:")
-        logger.info(f"     - With verification: {stats[f'{model_name}_with_verification']}")
-        logger.info(f"     - Without verification: {stats[f'{model_name}_without_verification']}")
+        logger.info(f"     - With verification: {stats[f'{safe_model_name}_with_verification']}")
+        logger.info(f"     - Without verification: {stats[f'{safe_model_name}_without_verification']}")
     
     # Report invalid verification values by model
     if invalid_verification_values:
@@ -343,7 +344,7 @@ def process_dataset(dataset_name: str,
                    base_dir: str,
                    model_names: List[str],
                    logger: logging.Logger,
-                   verification_dir: str = "verification_files",
+                   verification_dir: str = "merged_verification_files",
                    rollout_dir: str = "flattened_rollout_files",
                    output_dir: str = "processed_full_verification_files") -> List[Dict]:
     """
@@ -382,7 +383,7 @@ def process_dataset(dataset_name: str,
         verification_file = os.path.join(
             base_dir, 
             verification_dir, 
-            f"{dataset_name}_{model_name}_verification.jsonl"
+            f"{dataset_name}_{model_name}_verification_merged.jsonl"
         )
         
         if os.path.exists(verification_file):
@@ -522,8 +523,9 @@ def verify_merge_output(merged_file_path: str, logger: logging.Logger):
     
     for item in data:
         for model in model_names:
-            custom_id = item.get(f"{model}_verification_custom_id")
-            is_verified = item.get(f"{model}_isVerified")
+            safe_model_name = get_safe_model_name(model)
+            custom_id = item.get(f"{safe_model_name}_verification_custom_id")
+            is_verified = item.get(f"{safe_model_name}_isVerified")
             
             if custom_id is None:
                 coverage_stats[model]["no_data"] += 1
