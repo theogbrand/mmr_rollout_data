@@ -258,7 +258,7 @@ def merge_rollout_with_multiple_verifications(
     for i, rollout_item in enumerate(full_raw_rollout_data_array):
         # Start with base rollout fields
         merged_item = {
-            "response_uid": rollout_item["response_uid"],
+            "response_uid": rollout_item["uid"],
             "rollout_response": rollout_item["response"],
             "rollout_image_path": rollout_item["image_path"]
         }
@@ -349,7 +349,7 @@ def extract_verification_solutions(merged_verification_file: str, model_name: st
     single_tag_custom_ids = []
     no_tag_custom_ids = []
     solution_pattern = re.compile(r'<solution>(.*?)</solution>', re.DOTALL) # we are using the solution sent to be verified as the intersection key (see README.md for more details)
-
+    safe_model_name = get_safe_model_name(model_name)
     with open(merged_verification_file, 'r') as f:
         for line_num, line in enumerate(f, 1):
             item = json.loads(line)
@@ -361,10 +361,10 @@ def extract_verification_solutions(merged_verification_file: str, model_name: st
                     solution_text = matches[1].strip()  # Get second occurrence
                     if solution_text:  # Only add non-empty verification_solutions 
                         verification_solutions.append({
-                            f"{model_name}_custom_id": item.get("custom_id", f"ERROR: {model_name} custom_id not found"),
+                            f"{safe_model_name}_custom_id": item.get("custom_id", f"ERROR: {model_name} custom_id not found"),
                             "unique_key": solution_text, # using the solution as the intersection key
-                            f"{model_name}_verification_response": item.get(f"verification_response", f"ERROR: {model_name} verification_response not found"),
-                            f"{model_name}_isVerified": item.get(f"{model_name}_isVerified", f"ERROR: {model_name} isVerified not found")
+                            f"{safe_model_name}_verification_response": item.get(f"verification_response", f"ERROR: {model_name} verification_response not found"),
+                            f"{safe_model_name}_isVerified": item.get(f"{model_name}_isVerified", f"ERROR: {model_name} isVerified not found")
                         })
                 elif len(matches) == 1:
                     custom_id = item.get("custom_id", f"ERROR: {model_name} custom_id not found")
@@ -423,7 +423,7 @@ def process_dataset(dataset_name: str,
     # Load verification solutions for each model
     verification_solutions_dict = {}
     for model_name in model_names:
-        safe_model_name = get_safe_model_name(model_name)
+        # safe_model_name = get_safe_model_name(model_name)
         verification_file = os.path.join(
             base_dir, 
             verification_dir, 
@@ -432,7 +432,7 @@ def process_dataset(dataset_name: str,
         
         if os.path.exists(verification_file):
             logger.info(f"\nLoading {model_name} verification data...")
-            verification_solutions_dict[model_name] = extract_verification_solutions(verification_file, safe_model_name, logger)
+            verification_solutions_dict[model_name] = extract_verification_solutions(verification_file, model_name, logger)
         else:
             logger.warning(f"{model_name} verification file not found: {verification_file}")
             # Continue with empty list for this model
