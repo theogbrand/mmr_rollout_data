@@ -260,7 +260,7 @@ def merge_rollout_with_multiple_verifications(
             "response_uid": rollout_item["uid"],
             "rollout_question": rollout_item["question"],
             "rollout_response": rollout_item["response"],
-            "rollout_answer": rollout_item["answer"],
+            "rollout_ground_truth_answer": rollout_item["answer"],
             "rollout_steps_with_score": rollout_item["steps_with_score"],
             "rollout_image_path": rollout_item["image_path"]
         }
