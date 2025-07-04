@@ -22,10 +22,10 @@ def save_outputs(outputs, results_file):
 
 
 def item2conv_prm(item):
-    id = item['uid']
-    image = item['image_path']
-    question = item['question']
-    steps_with_score = item['steps_with_score']
+    id = item['response_uid']
+    image = item['rollout_image_path']
+    question = item['rollout_question']
+    steps_with_score = item['rollout_steps_with_score']
 
     threshold = args.mc_threshold
     conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}]
@@ -92,9 +92,9 @@ def main():
 
         save_dir = args.save_dir
         ds_name = os.path.basename(filename).replace('.jsonl', '')
-        os.makedirs(os.path.join(save_dir, 'raw'), exist_ok=True)
+        os.makedirs(os.path.join(save_dir, 'train'), exist_ok=True)
 
-        pairs_save_path = os.path.join(save_dir, 'raw', f'{ds_name}_prm.jsonl')
+        pairs_save_path = os.path.join(save_dir, 'train', f'{ds_name}_prm_training_data.jsonl')
         # pairs_orm_save_path = os.path.join(save_dir, 'raw', f'{ds_name}_orm.jsonl')
 
         if os.path.exists(pairs_save_path) and not args.overwrite:
@@ -134,7 +134,7 @@ def main():
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/flattened_rollout_files')
+    parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files')
     parser.add_argument('--save-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/prm_training_data')
     parser.add_argument('--mc-threshold', type=float, default=0.0)
     parser.add_argument('--early-stop', action='store_true', default=False)
