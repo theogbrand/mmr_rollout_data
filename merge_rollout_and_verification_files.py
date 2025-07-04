@@ -447,7 +447,7 @@ def process_dataset(dataset_name: str,
     # Define output path
     output_path = os.path.join(
         output_path_dir, 
-        f"{dataset_name}_final_all_models_merged.jsonl"
+        f"{dataset_name}_final_mc_rollouts_with_all_models_verification_merged.jsonl"
     )
     
     # Perform the merge
