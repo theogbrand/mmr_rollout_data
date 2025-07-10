@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 from typing import Dict, List, Tuple, Optional, Any
 from collections import defaultdict
-
+import uuid
 
 def get_safe_model_name(model_name: str) -> str:
     """Convert model name to safe format for column names by replacing hyphens with underscores."""
@@ -257,12 +257,13 @@ def merge_rollout_with_multiple_verifications(
     for i, rollout_item in enumerate(full_raw_rollout_data_array):
         # Start with base rollout fields
         merged_item = {
-            "response_uid": rollout_item["uid"],
+            "prompt_uid": rollout_item["uid"], # this is actually the unique Prompt ID, so the actually uuid is something else.
             "rollout_question": rollout_item["question"],
             "rollout_response": rollout_item["response"],
             "rollout_ground_truth_answer": rollout_item["answer"],
             "rollout_steps_with_score": rollout_item["steps_with_score"],
-            "rollout_image_path": rollout_item["image_path"]
+            "rollout_image_path": rollout_item["image_path"],
+            "rollout_uuid": str(uuid.uuid4())  # this is the actual uuid of the rollout item
         }
         
         # Merge verification data from each model
