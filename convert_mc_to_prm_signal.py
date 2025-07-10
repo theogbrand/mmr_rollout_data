@@ -28,10 +28,11 @@ def item2conv_prm(item):
     steps_with_score = item['rollout_steps_with_score']
 
     threshold = args.mc_threshold
-    conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}]
+    conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}] # update prompt
     for step_idx, step in enumerate(steps_with_score):
         step_solution = step['step']
         if step_idx == 0:
+            # somehow include the [Preception] [Reasoning] XML tags here as well since model will be prompted this way to get final answer
             step_solution = f'### Question:\n{question}\n\n### Solution Process:\n{step_solution}'
 
         conversations.extend([
