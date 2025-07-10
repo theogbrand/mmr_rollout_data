@@ -108,7 +108,7 @@ def item2conv_prm(item):
 
     return {
         'id': id,
-        'image_path': image,
+        'image_url': image, # name follows process_vision_info qwen function requirement: https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py#L321
         'conversations': conversations,
     }
 
