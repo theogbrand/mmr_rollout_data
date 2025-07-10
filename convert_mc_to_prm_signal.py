@@ -29,15 +29,21 @@ def item2conv_prm(item):
 
     threshold = args.mc_threshold
     conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}] # update prompt
+    found_negative = False
+    
     for step_idx, step in enumerate(steps_with_score):
         step_solution = step['step']
         if step_idx == 0:
             # somehow include the [Preception] [Reasoning] XML tags here as well since model will be prompted this way to get final answer
             step_solution = f'### Question:\n{question}\n\n### Solution Process:\n{step_solution}'
 
+        # Once we find a negative step, all subsequent steps are negative
+        if not found_negative and step['score'] <= threshold:
+            found_negative = True
+        
         conversations.extend([
             {'from': 'human', 'value': step_solution},
-            {'from': 'gpt', 'value': '+' if step['score'] > threshold else '-'},
+            {'from': 'gpt', 'value': '-' if found_negative else '+'},
         ])
 
         if args.early_stop and step['score'] <= threshold:
