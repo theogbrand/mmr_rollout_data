@@ -20,6 +20,8 @@
         - At this point every model is separately merged with the rollout files, and we have 3 files for each dataset, so we need to merge this into 1 file, taking the rollout file as the "reference point".
 
 3. a. We merge all three model verification files into a single file, taking the rollout file as the "reference point".
-    - Refer to ```merge_all_model_verification_files.ipynb``` for more details.
+    - Refer to ```merge_all_model_verification_files.ipynb``` for more details
+        - run ```pyton merge_rollout_and_verification_files.py test``` to test the merge function on ONE dataset of prompts first (AI2D).
+        - to test the multi dataset version
 
     b. We use ```convert_mc_to_prm_signal.py``` which takes in a threshold value, converts stepwise scores into "+/-" PRM signal, and filters out rollouts with consensus between the three model verification results
