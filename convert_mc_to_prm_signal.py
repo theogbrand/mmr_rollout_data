@@ -160,7 +160,45 @@ def find_index_of_first_incorrect_step_in_verification_trace(mc_filtered_item, a
     return
 
 def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
-    return
+    target_id = mc_filtered_item['id']
+    
+    print(f"DEBUG: Looking for item with id: {target_id}")
+    
+    # Find the matching item in all_items_array
+    matching_item = None
+    for item in all_items_array:
+        if item.get('response_uid') == target_id:  # based on item2conv_prm, id comes from response_uid
+            matching_item = item
+            break
+    
+    if matching_item is None:
+        raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
+    
+    print(f"DEBUG: Found matching item for id: {target_id}")
+    
+    # Check the verification columns
+    verification_columns = ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified']
+    
+    verification_status = {}
+    for col in verification_columns:
+        if col not in matching_item:
+            raise KeyError(f"ERROR: Column {col} not found in item with id {target_id}")
+        
+        value = matching_item[col]
+        if not isinstance(value, bool):
+            raise TypeError(f"ERROR: Column {col} is not boolean (got {type(value).__name__}: {value}) for item with id {target_id}")
+        
+        verification_status[col] = value
+    
+    print(f"DEBUG: Verification status for id {target_id}: {verification_status}")
+    
+    # Check if all verification columns are True
+    all_verified = all(verification_status[col] for col in verification_columns)
+    
+    print(f"DEBUG: All verification columns True for id {target_id}: {all_verified}")
+    
+    return all_verified
+
 
 def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
     # if mc filtered item is correct
@@ -219,13 +257,12 @@ def main():
         #     id2scores[(str(image), question)].append(score)
 
         for item in items:
-            mc_filtered_item = convs_prm.append(item2conv_prm(item))
+            mc_filtered_item = item2conv_prm(item)
             if is_LLM_judge_consensus_filtering(mc_filtered_item, items):
                 final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
+                convs_prm.append(final_filtered_item)
             else:
                 continue # track rows that failed the consensus filtering in another array that is saved for auditing
-            
-            convs_prm.append(final_filtered_item)
  
             statistics['num_turns'].append(len(convs_prm[-1]['conversations']))
 
