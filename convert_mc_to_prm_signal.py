@@ -156,8 +156,181 @@ def item2conv_prm(item):
 #     }
 
 
-def find_index_of_first_incorrect_step_in_verification_trace(mc_filtered_item, all_items_array):
-    return
+def is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
+    """
+    Check if all LLM judges agree that there is an incorrect step in the solution.
+    Returns True if all verifiers have isVerified=False, False otherwise.
+    """
+    target_id = mc_filtered_item['id']
+    
+    # Find the matching item in all_items_array
+    matching_item = None
+    for item in all_items_array:
+        if item.get('response_uid') == target_id:
+            matching_item = item
+            break
+    
+    if matching_item is None:
+        raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
+    
+    # Check all verification columns
+    verification_columns = ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified']
+    
+    for col in verification_columns:
+        if col not in matching_item:
+            raise KeyError(f"ERROR: Column {col} not found in item with id {target_id}")
+        
+        is_verified = matching_item[col]
+        if not isinstance(is_verified, bool):
+            raise TypeError(f"ERROR: Column {col} is not boolean (got {type(is_verified).__name__}: {is_verified}) for item with id {target_id}")
+        
+        # If any verifier thinks all steps are correct, consensus fails
+        if is_verified:
+            print(f"DEBUG: {col} has isVerified=True, but MC found incorrect step. No consensus on error existence.")
+            return False
+    
+    print(f"DEBUG: All LLM judges agree there is an error for id {target_id}")
+    return True
+
+
+def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered_item, all_items_array):
+    """
+    Check if MC and all LLM judges agree on which step is the first incorrect one.
+    Assumes is_llm_judges_consensus_for_incorrect has already returned True.
+    """
+    # Validate that first_incorrect_step is in the expected format
+    first_incorrect_step = mc_filtered_item.get('first_incorrect_step')
+    if not isinstance(first_incorrect_step, tuple) or len(first_incorrect_step) != 2:
+        raise TypeError(f"ERROR: first_incorrect_step must be a tuple of length 2, got {type(first_incorrect_step).__name__}: {first_incorrect_step}")
+    
+    section, step_index = first_incorrect_step
+    if section not in ['Visual Elements', 'Reasoning']:
+        raise ValueError(f"ERROR: first element of first_incorrect_step must be 'Visual Elements' or 'Reasoning', got: {section}")
+    
+    if not isinstance(step_index, int):
+        raise TypeError(f"ERROR: second element of first_incorrect_step must be an integer, got {type(step_index).__name__}: {step_index}")
+    
+    # find the full item in all_items_array that has the same id as the mc_filtered_item
+    target_id = mc_filtered_item['id']
+    print(f"DEBUG: Checking step consensus for id: {target_id} with MC first_incorrect_step: {first_incorrect_step}")
+    
+    # Find the matching item in all_items_array
+    mc_matching_full_item = None
+    for item in all_items_array:
+        if item.get('response_uid') == target_id:
+            mc_matching_full_item = item
+            break
+    
+    if mc_matching_full_item is None:
+        raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
+    
+    # Define the verification model pairs
+    verification_models = [
+        ('o4_mini', 'o4_mini_verification_solution'),
+        ('gpt_4.1_mini', 'gpt_4.1_mini_verification_solution'),
+        ('gpt_4.1_nano', 'gpt_4.1_nano_verification_solution')
+    ]
+    
+    # Check each verification model's solution
+    for model_name, verification_solution_col in verification_models:
+        if verification_solution_col not in mc_matching_full_item:
+            raise KeyError(f"ERROR: Column {verification_solution_col} not found in item with id {target_id}")
+        
+        # Parse the verification solution to find the first incorrect step
+        verification_solution = mc_matching_full_item[verification_solution_col]
+        try:
+            verifier_first_incorrect = parse_first_incorrect_step_from_verification(verification_solution)
+        except Exception as e:
+            print(f"DEBUG: {model_name} failed to parse verification_solution: {e}. No consensus possible.")
+            return False
+        
+        # Compare with MC's first incorrect step
+        if verifier_first_incorrect != first_incorrect_step:
+            print(f"DEBUG: {model_name} first incorrect step {verifier_first_incorrect} doesn't match MC {first_incorrect_step}. No consensus on step index.")
+            return False
+        
+        print(f"DEBUG: {model_name} agrees with MC on first incorrect step: {first_incorrect_step}")
+    
+    # All models agree with MC on the first incorrect step
+    print(f"DEBUG: All verification models agree with MC on first incorrect step for id {target_id}")
+    return True
+
+
+def parse_first_incorrect_step_from_verification(verification_solution):
+    """
+    Parse the verification solution to find the first incorrect step.
+    Since the verification process stops after finding the first incorrect step,
+    we return the section and step index of the LAST analysis block found.
+    
+    Returns a tuple (section, step_index) where section is 'Visual Elements' or 'Reasoning'
+    and step_index is 0-based.
+    
+    Example format:
+    [Visual Elements]
+    <analysis_1>
+    Step 1 correctly lists...
+    </analysis_1>
+    <analysis_2>
+    Step 2 correctly notes...
+    </analysis_2>
+    <analysis_3>
+    Step 3 is incorrect...  # This is the last analysis block - the first incorrect step
+    </analysis_3>
+    """
+    if not verification_solution:
+        raise ValueError("ERROR: verification_solution is empty")
+    
+    # Track current section and last analysis block found
+    current_section = None
+    last_analysis_section = None
+    last_analysis_step_num = None
+    
+    # Split into lines for processing
+    lines = verification_solution.split('\n')
+    
+    # Regular expressions for parsing
+    section_pattern = re.compile(r'^\[(Visual Elements|Reasoning)\]$')
+    analysis_pattern = re.compile(r'^<analysis_(\d+)>$')
+    analysis_end_pattern = re.compile(r'^</analysis_\d+>$')
+    
+    in_analysis = False
+    current_step_num = None
+    
+    for line in lines:
+        line = line.strip()
+        
+        # Check for section headers
+        section_match = section_pattern.match(line)
+        if section_match:
+            current_section = section_match.group(1)
+            continue
+        
+        # Check for analysis start
+        analysis_match = analysis_pattern.match(line)
+        if analysis_match:
+            in_analysis = True
+            current_step_num = int(analysis_match.group(1))
+            continue
+        
+        # Check for analysis end
+        if analysis_end_pattern.match(line):
+            if in_analysis and current_step_num is not None:
+                # Update the last analysis block found
+                last_analysis_section = current_section
+                last_analysis_step_num = current_step_num
+            
+            in_analysis = False
+            current_step_num = None
+            continue
+    
+    # Return the last analysis block found (which is the first incorrect step)
+    if last_analysis_section is not None and last_analysis_step_num is not None:
+        # Convert to 0-based index
+        return (last_analysis_section, last_analysis_step_num - 1)
+    
+    # If we reach here, no analysis block was found
+    raise ValueError("ERROR: No analysis block found in verification_solution")
+
 
 def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
     target_id = mc_filtered_item['id']
@@ -208,9 +381,10 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
         return check_all_step_correct_consensus(mc_filtered_item, all_items_array)
 
     else: # check if first incorrect step is the same for verification traces
-        return find_index_of_first_incorrect_step_in_verification_trace(mc_filtered_item, all_items_array)
-    
-    return
+        if is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
+            return is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered_item, all_items_array)
+        else:
+            return False
 
 
 # follow TRL expected data format
