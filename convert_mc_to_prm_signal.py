@@ -25,17 +25,69 @@ def item2conv_prm(item):
     id = item['response_uid']
     image = item['rollout_image_path']
     question = item['rollout_question']
+    full_rollout_response = item['rollout_response']
     steps_with_score = item['rollout_steps_with_score']
 
     threshold = args.mc_threshold
-    conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}] # update prompt
+    conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}]
     found_negative = False
     
+    # Parse the full response to map steps to their sections
+    import re
+    
+    # Find section boundaries
+    visual_elements_match = re.search(r'\[Visual Elements\](.*?)\[Reasoning\]', full_rollout_response, re.DOTALL)
+    reasoning_match = re.search(r'\[Reasoning\](.*?)(?:<correct_answer>|$)', full_rollout_response, re.DOTALL)
+    
+    # Extract steps from each section with XML tags preserved
+    visual_steps = []
+    reasoning_steps = []
+    
+    if visual_elements_match:
+        visual_content = visual_elements_match.group(1)
+        visual_step_matches = re.findall(r'(<step_\d+>.*?</step_\d+>)', visual_content, re.DOTALL)
+        visual_steps = [step.strip() for step in visual_step_matches]
+    
+    if reasoning_match:
+        reasoning_content = reasoning_match.group(1)
+        reasoning_step_matches = re.findall(r'(<step_\d+>.*?</step_\d+>)', reasoning_content, re.DOTALL)
+        reasoning_steps = [step.strip() for step in reasoning_step_matches]
+    
+    # Create a mapping of step content (without XML tags) to full XML step and section
+    step_to_section_and_xml = {}
+    for xml_step in visual_steps:
+        # Extract content without XML tags for matching
+        content_match = re.search(r'<step_\d+>(.*?)</step_\d+>', xml_step, re.DOTALL)
+        if content_match:
+            content = content_match.group(1).strip()
+            step_to_section_and_xml[content] = (xml_step, '[Visual Elements]')
+    
+    for xml_step in reasoning_steps:
+        # Extract content without XML tags for matching
+        content_match = re.search(r'<step_\d+>(.*?)</step_\d+>', xml_step, re.DOTALL)
+        if content_match:
+            content = content_match.group(1).strip()
+            step_to_section_and_xml[content] = (xml_step, '[Reasoning]')
+    
+    # Process each scored step
+    current_section = None
     for step_idx, step in enumerate(steps_with_score):
-        step_solution = step['step']
+        step_solution = step['step'].strip()
+        
         if step_idx == 0:
-            # somehow include the [Preception] [Reasoning] XML tags here as well since model will be prompted this way to get final answer
+            # First step includes the question and solution process header
             step_solution = f'### Question:\n{question}\n\n### Solution Process:\n{step_solution}'
+        else:
+            # Check if this step has XML tags and section info
+            if step_solution in step_to_section_and_xml:
+                xml_step, section = step_to_section_and_xml[step_solution]
+                if section != current_section:
+                    # Prepend section header to the XML step
+                    step_solution = f'{section}\n{xml_step}'
+                    current_section = section
+                else:
+                    # Use XML step without section header
+                    step_solution = xml_step
 
         # Once we find a negative step, all subsequent steps are negative
         if not found_negative and step['score'] <= threshold:
