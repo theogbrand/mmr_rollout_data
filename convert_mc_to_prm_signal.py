@@ -75,8 +75,13 @@ def item2conv_prm(item):
         step_solution = step['step'].strip()
         
         if step_idx == 0:
-            # First step includes the question and solution process header
-            step_solution = f'### Question:\n{question}\n\n### Solution Process:\n{step_solution}'
+            # First step includes the question and solution process header with Visual Elements section
+            if step_solution in step_to_section_and_xml:
+                xml_step, section = step_to_section_and_xml[step_solution]
+                step_solution = f'### Question:\n{question}\n\n### Solution Process:\n[Visual Elements]\n{xml_step}'
+                current_section = section
+            else:
+                raise ValueError(f"Step solution not found in step_to_section_and_xml: {step_solution}")
         else:
             # Check if this step has XML tags and section info
             if step_solution in step_to_section_and_xml:
