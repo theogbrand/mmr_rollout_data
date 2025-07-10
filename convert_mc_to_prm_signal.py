@@ -123,7 +123,7 @@ def item2conv_prm(item):
         'id': id,
         'image_url': image, # name follows process_vision_info qwen function requirement: https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py#L321
         'conversations': conversations,
-        'first_incorrect_step': first_incorrect_step,
+        'first_incorrect_step': first_incorrect_step, # None if all steps are correct, otherwise (section, step_index)
     }
 
 
@@ -156,7 +156,27 @@ def item2conv_prm(item):
 #     }
 
 
-def LLM_judge_consensus_filtering(item):
+def find_index_of_first_incorrect_step_in_verification_trace(mc_filtered_item, all_items_array):
+    return
+
+def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
+    return
+
+def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
+    # if mc filtered item is correct
+    if mc_filtered_item['first_incorrect_step'] is None:
+        # just need to check if {model_name}_isVerified is True for all models
+            # if check is True, then return True
+        return check_all_step_correct_consensus(mc_filtered_item, all_items_array)
+
+    else: # check if first incorrect step is the same for verification traces
+        return find_index_of_first_incorrect_step_in_verification_trace(mc_filtered_item, all_items_array)
+    
+    return
+
+
+# follow TRL expected data format
+def final_filter_and_processing_before_training(final_mc_prm_data):
     return
 
 
@@ -199,8 +219,14 @@ def main():
         #     id2scores[(str(image), question)].append(score)
 
         for item in items:
-            convs_prm.append(item2conv_prm(item))
-            # convs_orm.append(item2conv_orm(item))
+            mc_filtered_item = convs_prm.append(item2conv_prm(item))
+            if is_LLM_judge_consensus_filtering(mc_filtered_item, items):
+                final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
+            else:
+                continue # track rows that failed the consensus filtering in another array that is saved for auditing
+            
+            convs_prm.append(final_filtered_item)
+ 
             statistics['num_turns'].append(len(convs_prm[-1]['conversations']))
 
         print(f'[{filename}]')
