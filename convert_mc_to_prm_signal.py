@@ -23,7 +23,7 @@ def save_outputs(outputs, results_file):
 
 
 def item2conv_prm(item):
-    id = item['response_uid']
+    id = item['rollout_uuid']
     image = item['rollout_image_path']
     question = item['rollout_question']
     full_rollout_response = item['rollout_response']
@@ -124,6 +124,7 @@ def item2conv_prm(item):
         'image_url': image, # name follows process_vision_info qwen function requirement: https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py#L321
         'conversations': conversations,
         'first_incorrect_step': first_incorrect_step, # None if all steps are correct, otherwise (section, step_index)
+        'steps_with_score': steps_with_score,
     }
 
 
@@ -163,15 +164,15 @@ def is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
     """
     target_id = mc_filtered_item['id']
     
-    # Find the matching item in all_items_array
-    matching_item = None
-    for item in all_items_array:
-        if item.get('response_uid') == target_id:
-            matching_item = item
-            break
+    # Find the matching item in all_items_array - ensure exactly one match
+    matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]
     
-    if matching_item is None:
+    if len(matching_items) == 0:
         raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
+    elif len(matching_items) > 1:
+        raise ValueError(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
+    
+    matching_item = matching_items[0]
     
     # Check all verification columns
     verification_columns = ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified']
@@ -186,10 +187,12 @@ def is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
         
         # If any verifier thinks all steps are correct, consensus fails
         if is_verified:
-            print(f"DEBUG: {col} has isVerified=True, but MC found incorrect step. No consensus on error existence.")
+            # print(f"DEBUG: {col} has isVerified=True, but MC found incorrect a negative step, for id {target_id}, where full item is {matching_item} and MC filtered item is {mc_filtered_item}. No consensus on error existence.")
             return False
     
-    print(f"DEBUG: All LLM judges agree there is an error for id {target_id}")
+    print(f"DEBUG: Both MC score and LLM judges agrees there is an error for id {target_id}")
+    print(f"DEBUG: full item {matching_item} and MC filtered item is {mc_filtered_item}. all consensus for MC and LLM judges for INCORRECT sample, checking if index of first incorrect step is the same next.")
+    exit() # TODOL Continue from here
     return True
 
 
@@ -214,15 +217,15 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
     target_id = mc_filtered_item['id']
     print(f"DEBUG: Checking step consensus for id: {target_id} with MC first_incorrect_step: {first_incorrect_step}")
     
-    # Find the matching item in all_items_array
-    mc_matching_full_item = None
-    for item in all_items_array:
-        if item.get('response_uid') == target_id:
-            mc_matching_full_item = item
-            break
+    # Find the matching item in all_items_array - ensure exactly one match
+    matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]
     
-    if mc_matching_full_item is None:
+    if len(matching_items) == 0:
         raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
+    elif len(matching_items) > 1:
+        raise ValueError(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
+    
+    mc_matching_full_item = matching_items[0]
     
     # Define the verification model pairs
     verification_models = [
@@ -337,16 +340,15 @@ def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
     
     print(f"DEBUG: Looking for item with id: {target_id}")
     
-    # Find the matching item in all_items_array
-    matching_item = None
-    for item in all_items_array:
-        if item.get('response_uid') == target_id:  # based on item2conv_prm, id comes from response_uid
-            matching_item = item
-            break
+    # Find the matching item in all_items_array - ensure exactly one match
+    matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]  # based on item2conv_prm, id comes from rollout_uuid
     
-    if matching_item is None:
+    if len(matching_items) == 0:
         raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
+    elif len(matching_items) > 1:
+        raise ValueError(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
     
+    matching_item = matching_items[0]
     print(f"DEBUG: Found matching item for id: {target_id}")
     
     # Check the verification columns
@@ -369,18 +371,19 @@ def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
     all_verified = all(verification_status[col] for col in verification_columns)
     
     print(f"DEBUG: All verification columns True for id {target_id}: {all_verified}")
-    
     return all_verified
 
 
 def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
-    # if mc filtered item is correct
+    # if mc filtered item is correct; consensus for correct
     if mc_filtered_item['first_incorrect_step'] is None:
+        print(f"DEBUG: Judging a trace where all MC steps are correct with threshold selected")
         # just need to check if {model_name}_isVerified is True for all models
             # if check is True, then return True
         return check_all_step_correct_consensus(mc_filtered_item, all_items_array)
 
-    else: # check if first incorrect step is the same for verification traces
+    else: # check if first incorrect step is the same for verification traces; consensus for incorrect
+        print(f"DEBUG: Judging a trace where there is an incorrect step in the trace, first check if LLM judges agree there is an incorrect step, then check if the index of the first incorrect step is the same for MC and LLM judges")
         if is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
             return is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered_item, all_items_array)
         else:
@@ -422,6 +425,15 @@ def main():
         # convs_orm = []
         items = load_outputs(os.path.join(args.data_dir, filename))
 
+        # Filter out items with None values in verification columns first
+        verification_columns = ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified']
+        filtered_items = []
+        for item in items:
+            if any(col not in item or item[col] is None for col in verification_columns):
+                print(f"DEBUG: Skipping item because it has None values in verification columns")
+                continue
+            filtered_items.append(item)
+
         # for item in items:
         #     image = item['image_path']
         #     question = item['question']
@@ -430,11 +442,14 @@ def main():
         #     score = steps_with_score[-1]['score']
         #     id2scores[(str(image), question)].append(score)
 
-        for item in items:
+        for item in filtered_items:
             mc_filtered_item = item2conv_prm(item)
-            if is_LLM_judge_consensus_filtering(mc_filtered_item, items):
-                final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
-                convs_prm.append(final_filtered_item)
+            if is_LLM_judge_consensus_filtering(mc_filtered_item, filtered_items):
+                convs_prm.append(mc_filtered_item)
+                # final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
+                # convs_prm.append(final_filtered_item)
+                # print(convs_prm)
+                # exit()
             else:
                 continue # track rows that failed the consensus filtering in another array that is saved for auditing
  
