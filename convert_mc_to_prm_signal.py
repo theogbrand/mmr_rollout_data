@@ -2,6 +2,7 @@ import json
 import os
 from argparse import ArgumentParser
 from collections import defaultdict
+import re
 
 from constants_and_prompts import PRM_SYSTEM_PROMPT
 
@@ -31,9 +32,7 @@ def item2conv_prm(item):
     threshold = args.mc_threshold
     conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}]
     found_negative = False
-    
-    # Parse the full response to map steps to their sections
-    import re
+    first_incorrect_step = None
     
     # Find section boundaries
     visual_elements_match = re.search(r'\[Visual Elements\](.*?)\[Reasoning\]', full_rollout_response, re.DOTALL)
@@ -71,6 +70,9 @@ def item2conv_prm(item):
     
     # Process each scored step
     current_section = None
+    visual_elements_step_count = 0
+    reasoning_step_count = 0
+    
     for step_idx, step in enumerate(steps_with_score):
         step_solution = step['step'].strip()
         
@@ -93,10 +95,21 @@ def item2conv_prm(item):
                 else:
                     # Use XML step without section header
                     step_solution = xml_step
+        
+        # Update step counters based on current section
+        if current_section == '[Visual Elements]':
+            visual_elements_step_count += 1
+        elif current_section == '[Reasoning]':
+            reasoning_step_count += 1
 
         # Once we find a negative step, all subsequent steps are negative
         if not found_negative and step['score'] <= threshold:
             found_negative = True
+            # Record the first incorrect step
+            if current_section == '[Visual Elements]':
+                first_incorrect_step = ('Visual Elements', visual_elements_step_count - 1)
+            elif current_section == '[Reasoning]':
+                first_incorrect_step = ('Reasoning', reasoning_step_count - 1)
         
         conversations.extend([
             {'from': 'human', 'value': step_solution},
@@ -110,6 +123,7 @@ def item2conv_prm(item):
         'id': id,
         'image_url': image, # name follows process_vision_info qwen function requirement: https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py#L321
         'conversations': conversations,
+        'first_incorrect_step': first_incorrect_step,
     }
 
 
@@ -140,6 +154,10 @@ def item2conv_prm(item):
 #         'image_path': image,
 #         'conversations': conversations,
 #     }
+
+
+def LLM_judge_consensus_filtering(item):
+    return
 
 
 def main():
