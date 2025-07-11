@@ -35,7 +35,7 @@ def item2conv_prm(item):
     first_incorrect_step = None
     
     # Find section boundaries
-    visual_elements_match = re.search(r'\[Visual Elements\](.*?)\[Reasoning\]', full_rollout_response, re.DOTALL)
+    visual_elements_match = re.search(r'\[(?:Visual Elements|Perception)\](.*?)\[Reasoning\]', full_rollout_response, re.DOTALL)
     reasoning_match = re.search(r'\[Reasoning\](.*?)(?:<correct_answer>|$)', full_rollout_response, re.DOTALL)
     
     # Extract steps from each section with XML tags preserved
@@ -52,6 +52,11 @@ def item2conv_prm(item):
         reasoning_step_matches = re.findall(r'(<step_\d+>.*?</step_\d+>)', reasoning_content, re.DOTALL)
         reasoning_steps = [step.strip() for step in reasoning_step_matches]
     
+    # Determine the actual first section name from the rollout response
+    first_section_name = '[Visual Elements]'  # default
+    if re.search(r'\[Perception\]', full_rollout_response):
+        first_section_name = '[Perception]'
+    
     # Create a mapping of step content (without XML tags) to full XML step and section
     step_to_section_and_xml = {}
     for xml_step in visual_steps:
@@ -59,7 +64,7 @@ def item2conv_prm(item):
         content_match = re.search(r'<step_\d+>(.*?)</step_\d+>', xml_step, re.DOTALL)
         if content_match:
             content = content_match.group(1).strip()
-            step_to_section_and_xml[content] = (xml_step, '[Visual Elements]')
+            step_to_section_and_xml[content] = (xml_step, first_section_name)
     
     for xml_step in reasoning_steps:
         # Extract content without XML tags for matching
@@ -97,7 +102,7 @@ def item2conv_prm(item):
                     step_solution = xml_step
         
         # Update step counters based on current section
-        if current_section == '[Visual Elements]':
+        if current_section in ['[Visual Elements]', '[Perception]']:
             visual_elements_step_count += 1
         elif current_section == '[Reasoning]':
             reasoning_step_count += 1
@@ -106,8 +111,8 @@ def item2conv_prm(item):
         if not found_negative and step['score'] <= threshold:
             found_negative = True
             # Record the first incorrect step
-            if current_section == '[Visual Elements]':
-                first_incorrect_step = ('Visual Elements', visual_elements_step_count - 1)
+            if current_section in ['[Visual Elements]', '[Perception]']:
+                first_incorrect_step = ('Visual Elements', visual_elements_step_count - 1)  # Normalize to Visual Elements
             elif current_section == '[Reasoning]':
                 first_incorrect_step = ('Reasoning', reasoning_step_count - 1)
         
@@ -192,7 +197,6 @@ def is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
     
     print(f"DEBUG: Both MC score and LLM judges agrees there is an error for id {target_id}")
     print(f"DEBUG: full item {matching_item} and MC filtered item is {mc_filtered_item}. all consensus for MC and LLM judges for INCORRECT sample, checking if index of first incorrect step is the same next.")
-    exit() # TODOL Continue from here
     return True
 
 
@@ -202,20 +206,22 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
     Assumes is_llm_judges_consensus_for_incorrect has already returned True.
     """
     # Validate that first_incorrect_step is in the expected format
-    first_incorrect_step = mc_filtered_item.get('first_incorrect_step')
-    if not isinstance(first_incorrect_step, tuple) or len(first_incorrect_step) != 2:
-        raise TypeError(f"ERROR: first_incorrect_step must be a tuple of length 2, got {type(first_incorrect_step).__name__}: {first_incorrect_step}")
+    print(f"DEBUG: now checking if index of first incorrect step is the same for MC and LLM judges")
+    mc_first_incorrect_step = mc_filtered_item.get('first_incorrect_step')
+    print(f"DEBUG: mc_first_incorrect_step: {mc_first_incorrect_step}")
+    if not isinstance(mc_first_incorrect_step, tuple) or len(mc_first_incorrect_step) != 2:
+        raise TypeError(f"ERROR: mc_first_incorrect_step must be a tuple of length 2, got {type(mc_first_incorrect_step).__name__}: {mc_first_incorrect_step}")
     
-    section, step_index = first_incorrect_step
+    section, step_index = mc_first_incorrect_step
     if section not in ['Visual Elements', 'Reasoning']:
-        raise ValueError(f"ERROR: first element of first_incorrect_step must be 'Visual Elements' or 'Reasoning', got: {section}")
+        raise ValueError(f"ERROR: first element of mc_first_incorrect_step must be 'Visual Elements' or 'Reasoning', got: {section}")
     
     if not isinstance(step_index, int):
-        raise TypeError(f"ERROR: second element of first_incorrect_step must be an integer, got {type(step_index).__name__}: {step_index}")
+        raise TypeError(f"ERROR: second element of mc_first_incorrect_step must be an integer, got {type(step_index).__name__}: {step_index}")
     
     # find the full item in all_items_array that has the same id as the mc_filtered_item
     target_id = mc_filtered_item['id']
-    print(f"DEBUG: Checking step consensus for id: {target_id} with MC first_incorrect_step: {first_incorrect_step}")
+    print(f"DEBUG: Checking step consensus for id: {target_id} with MC first_incorrect_step: {mc_first_incorrect_step}")
     
     # Find the matching item in all_items_array - ensure exactly one match
     matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]
@@ -231,7 +237,7 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
     verification_models = [
         ('o4_mini', 'o4_mini_verification_solution'),
         ('gpt_4.1_mini', 'gpt_4.1_mini_verification_solution'),
-        ('gpt_4.1_nano', 'gpt_4.1_nano_verification_solution')
+        # ('gpt_4.1_nano', 'gpt_4.1_nano_verification_solution')
     ]
     
     # Check each verification model's solution
@@ -241,6 +247,7 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
         
         # Parse the verification solution to find the first incorrect step
         verification_solution = mc_matching_full_item[verification_solution_col]
+        print(f"DEBUG: model_name: {model_name}, verification_solution: {verification_solution}")
         try:
             verifier_first_incorrect = parse_first_incorrect_step_from_verification(verification_solution)
         except Exception as e:
@@ -248,11 +255,11 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
             return False
         
         # Compare with MC's first incorrect step
-        if verifier_first_incorrect != first_incorrect_step:
-            print(f"DEBUG: {model_name} first incorrect step {verifier_first_incorrect} doesn't match MC {first_incorrect_step}. No consensus on step index.")
+        if verifier_first_incorrect != mc_first_incorrect_step:
+            print(f"DEBUG: {model_name} first incorrect step {verifier_first_incorrect} doesn't match MC {mc_first_incorrect_step}. No consensus on step index.")
             return False
         
-        print(f"DEBUG: {model_name} agrees with MC on first incorrect step: {first_incorrect_step}")
+        print(f"DEBUG: {model_name} agrees with MC on first incorrect step: {mc_first_incorrect_step}")
     
     # All models agree with MC on the first incorrect step
     print(f"DEBUG: All verification models agree with MC on first incorrect step for id {target_id}")
@@ -279,60 +286,69 @@ def parse_first_incorrect_step_from_verification(verification_solution):
     <analysis_3>
     Step 3 is incorrect...  # This is the last analysis block - the first incorrect step
     </analysis_3>
+    <conclusion>
+    Incorrect
+    </conclusion>
+    
+    ---
+
+    **Explanation:** The visual elements analysis is entirely correct. The reasoning analyses are mostly sound up to step 8. However, the final answer choice is flawed. The solution itself acknowledges that the correct outcome would be fish increase and crabs decrease, making "crabs grow in number" incorrect. Given the question asks to pick from the listed options and reasoning shows none match well, the solution should either indicate no effect or "fish grow in number" if that was an option, or otherwise state that no provided answer is correct.
+
+    Since the final provided answer contradicts the correct biological inference and the solution explicitly states this, the solution is incorrect in the final answer selection.
+
+    Therefore, the proper conclusion is "Incorrect."
     """
     if not verification_solution:
         raise ValueError("ERROR: verification_solution is empty")
     
-    # Track current section and last analysis block found
-    current_section = None
-    last_analysis_section = None
-    last_analysis_step_num = None
+    # Check that the conclusion is "Incorrect" or "incorrect"
+    conclusion_pattern = r'<conclusion>(.*?)</conclusion>'
+    conclusion_match = re.search(conclusion_pattern, verification_solution, re.DOTALL)
     
-    # Split into lines for processing
-    lines = verification_solution.split('\n')
+    if not conclusion_match:
+        raise ValueError("ERROR: No conclusion tag found in verification_solution")
     
-    # Regular expressions for parsing
-    section_pattern = re.compile(r'^\[(Visual Elements|Reasoning)\]$')
-    analysis_pattern = re.compile(r'^<analysis_(\d+)>$')
-    analysis_end_pattern = re.compile(r'^</analysis_\d+>$')
+    conclusion_text = conclusion_match.group(1).strip()
+    if conclusion_text.lower() != "incorrect":
+        raise ValueError(f"ERROR: Expected conclusion to be 'Incorrect' or 'incorrect', got: '{conclusion_text}'")
     
-    in_analysis = False
-    current_step_num = None
+    # Find all analysis blocks with their sections
+    analysis_blocks = []
     
-    for line in lines:
-        line = line.strip()
+    # Handle Visual Elements/Perception section
+    visual_pattern = r'\[(Visual Elements|Perception)\](.*?)(?=\[Reasoning\]|</conclusion>|$)'
+    for section_match in re.finditer(visual_pattern, verification_solution, re.DOTALL):
+        section_name = section_match.group(1)
+        section_content = section_match.group(2)
         
-        # Check for section headers
-        section_match = section_pattern.match(line)
-        if section_match:
-            current_section = section_match.group(1)
-            continue
-        
-        # Check for analysis start
-        analysis_match = analysis_pattern.match(line)
-        if analysis_match:
-            in_analysis = True
-            current_step_num = int(analysis_match.group(1))
-            continue
-        
-        # Check for analysis end
-        if analysis_end_pattern.match(line):
-            if in_analysis and current_step_num is not None:
-                # Update the last analysis block found
-                last_analysis_section = current_section
-                last_analysis_step_num = current_step_num
-            
-            in_analysis = False
-            current_step_num = None
-            continue
+        # Find analysis blocks in this section
+        analysis_pattern = r'<analysis_(\d+)>.*?</analysis_\d+>'
+        for analysis_match in re.finditer(analysis_pattern, section_content, re.DOTALL):
+            step_num = int(analysis_match.group(1)) # note the step_num starts from 1 here so we need to subtract 1 to get the 0-based index
+            analysis_blocks.append((section_name, step_num))
     
-    # Return the last analysis block found (which is the first incorrect step)
-    if last_analysis_section is not None and last_analysis_step_num is not None:
-        # Convert to 0-based index
-        return (last_analysis_section, last_analysis_step_num - 1)
+    # Handle Reasoning section
+    reasoning_pattern = r'\[Reasoning\](.*?)(?=</conclusion>|$)'
+    reasoning_match = re.search(reasoning_pattern, verification_solution, re.DOTALL)
+    if reasoning_match:
+        section_content = reasoning_match.group(1)
+        
+        # Find analysis blocks in reasoning section
+        analysis_pattern = r'<analysis_(\d+)>.*?</analysis_\d+>'
+        for analysis_match in re.finditer(analysis_pattern, section_content, re.DOTALL):
+            step_num = int(analysis_match.group(1)) # note the step_num starts from 1 here so we need to subtract 1 to get the 0-based index
+            analysis_blocks.append(("Reasoning", step_num))
     
-    # If we reach here, no analysis block was found
-    raise ValueError("ERROR: No analysis block found in verification_solution")
+    if not analysis_blocks:
+        raise ValueError("ERROR: No analysis block found in verification_solution")
+    
+    # Return the last analysis block (first incorrect step)
+    last_section, last_step_num = analysis_blocks[-1]
+    # Normalize Perception to Visual Elements for consistency
+    if last_section == 'Perception':
+        last_section = 'Visual Elements'
+    print(f"DEBUG: returning (last_section, last_step_num - 1): {(last_section, last_step_num - 1)}")
+    return (last_section, last_step_num - 1)  # Convert to 0-based
 
 
 def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
@@ -376,7 +392,7 @@ def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
 
 def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
     # if mc filtered item is correct; consensus for correct
-    if mc_filtered_item['first_incorrect_step'] is None:
+    if mc_filtered_item['first_incorrect_step'] is None: # TODO: collect IDs here to count and check manually
         print(f"DEBUG: Judging a trace where all MC steps are correct with threshold selected")
         # just need to check if {model_name}_isVerified is True for all models
             # if check is True, then return True
@@ -384,8 +400,8 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
 
     else: # check if first incorrect step is the same for verification traces; consensus for incorrect
         print(f"DEBUG: Judging a trace where there is an incorrect step in the trace, first check if LLM judges agree there is an incorrect step, then check if the index of the first incorrect step is the same for MC and LLM judges")
-        if is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
-            return is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered_item, all_items_array)
+        if is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array): # TODO: collect IDs here to count and check manually
+            return is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered_item, all_items_array)# TODO: collect IDs here to count and check manually
         else:
             return False
 
@@ -444,14 +460,13 @@ def main():
 
         for item in filtered_items:
             mc_filtered_item = item2conv_prm(item)
-            if is_LLM_judge_consensus_filtering(mc_filtered_item, filtered_items):
+            if is_LLM_judge_consensus_filtering(mc_filtered_item, filtered_items): # TODO: collect IDs here to count and check manually
                 convs_prm.append(mc_filtered_item)
                 # final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
                 # convs_prm.append(final_filtered_item)
-                # print(convs_prm)
-                # exit()
             else:
                 continue # track rows that failed the consensus filtering in another array that is saved for auditing
+            # TODO: collect IDs here to count and check manually
  
             statistics['num_turns'].append(len(convs_prm[-1]['conversations']))
 
