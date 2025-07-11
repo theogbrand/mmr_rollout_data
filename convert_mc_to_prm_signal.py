@@ -121,6 +121,9 @@ def item2conv_prm(item):
             {'from': 'gpt', 'value': '-' if found_negative else '+'},
         ])
 
+        # Early stop after processing the first negative step
+        # if first step negative, then conversation only has 1 human-gpt value
+        # for socres [0.8, 0.7, 0.6, -0.1, 0.5] and threshold 0.0, step 4 is the final step in the conversation
         if args.early_stop and step['score'] <= threshold:
             break
 
@@ -450,16 +453,9 @@ def main():
                 continue
             filtered_items.append(item)
 
-        # for item in items:
-        #     image = item['image_path']
-        #     question = item['question']
-        #     steps_with_score = item['steps_with_score']
-
-        #     score = steps_with_score[-1]['score']
-        #     id2scores[(str(image), question)].append(score)
-
         for item in filtered_items:
             mc_filtered_item = item2conv_prm(item)
+            # add a function to check if mc_filtered_item has first step incorrect. If so, then we can skip the item.
             if is_LLM_judge_consensus_filtering(mc_filtered_item, filtered_items): # TODO: collect IDs here to count and check manually
                 convs_prm.append(mc_filtered_item)
                 # final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
@@ -487,7 +483,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files')
     parser.add_argument('--save-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/prm_training_data')
     parser.add_argument('--mc-threshold', type=float, default=0.0) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error.
-    parser.add_argument('--early-stop', action='store_true', default=False)
+    parser.add_argument('--early-stop', action='store_true', default=True)
     parser.add_argument('--overwrite', action='store_true', default=False)
     # parser.add_argument('--include-orm-data', action='store_true', default=False)
     args = parser.parse_args()
