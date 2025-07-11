@@ -23,5 +23,6 @@
     - Refer to ```merge_all_model_verification_files.ipynb``` for more details
         - run ```pyton merge_rollout_and_verification_files.py test``` to test the merge function on ONE dataset of prompts first (AI2D).
         - to test the multi dataset version
+        - to test outputs from ```python convert_mc_to_prm_signal.py``` and verify first incorrect step is correct
 
     b. We use ```convert_mc_to_prm_signal.py``` which takes in a threshold value, converts stepwise scores into "+/-" PRM signal, and filters out rollouts with consensus between the three model verification results
