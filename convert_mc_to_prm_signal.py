@@ -192,7 +192,7 @@ def is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
         
         # If any verifier thinks all steps are correct, consensus fails
         if is_verified:
-            # print(f"DEBUG: {col} has isVerified=True, but MC found incorrect a negative step, for id {target_id}, where full item is {matching_item} and MC filtered item is {mc_filtered_item}. No consensus on error existence.")
+            print(f"DEBUG: {col} has isVerified=True, but MC found incorrect a negative step, for id {target_id}, where full item is {matching_item} and MC filtered item is {mc_filtered_item}. No consensus on error existence.")
             return False
     
     print(f"DEBUG: Both MC score and LLM judges agrees there is an error for id {target_id}")
