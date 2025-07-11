@@ -236,7 +236,7 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
     # Define the verification model pairs
     verification_models = [
         ('o4_mini', 'o4_mini_verification_solution'),
-        ('gpt_4.1_mini', 'gpt_4.1_mini_verification_solution'),
+        # ('gpt_4.1_mini', 'gpt_4.1_mini_verification_solution'),
         # ('gpt_4.1_nano', 'gpt_4.1_nano_verification_solution')
     ]
     
@@ -478,6 +478,7 @@ def main():
         print()
 
         save_outputs(convs_prm, pairs_save_path)
+        print(f"DEBUG: saved {len(convs_prm)} items to {pairs_save_path}")
         # if args.include_orm_data:
             # save_outputs(convs_orm, pairs_orm_save_path)
 
@@ -485,7 +486,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files')
     parser.add_argument('--save-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/prm_training_data')
-    parser.add_argument('--mc-threshold', type=float, default=0.0)
+    parser.add_argument('--mc-threshold', type=float, default=0.0) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error.
     parser.add_argument('--early-stop', action='store_true', default=False)
     parser.add_argument('--overwrite', action='store_true', default=False)
     # parser.add_argument('--include-orm-data', action='store_true', default=False)
