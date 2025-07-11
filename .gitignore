@@ -11,3 +11,5 @@ process_verification_files_logs/*
 merge_verification_and_rollout_logs/*
 final_combined_MC_and_verification_files/*
 old_AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl
+.env
+ai2d_images/*
