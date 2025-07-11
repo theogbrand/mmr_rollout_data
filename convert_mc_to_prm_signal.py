@@ -410,8 +410,46 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
 
 
 # follow TRL expected data format
-def final_filter_and_processing_before_training(final_mc_prm_data):
-    return
+def final_filter_and_processing_before_training(final_mc_prm_data): # columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
+    """
+    Convert from ShareGPT format to TRL format
+    - ShareGPT: {'from': 'human', 'value': 'text'}
+    - TRL: {'role': 'user', 'content': [{'type': 'text', 'text': 'text', 'index': None}]}
+    """
+    # Convert conversations from ShareGPT to TRL format
+    trl_messages = []
+    image_added = False
+    
+    for msg in final_mc_prm_data['conversations']:
+        # Map ShareGPT roles to TRL roles
+        role_mapping = {
+            'human': 'user',
+            'gpt': 'assistant', 
+            'system': 'system'
+        }
+        
+        trl_role = role_mapping.get(msg['from'], msg['from'])
+        
+        # Create content list with text
+        content = [{"type": "text", "text": msg['value'], "index": None}]
+        
+        # Add image to the first human/user message
+        if trl_role == 'user' and not image_added:
+            content.append({"type": "image", "text": None, "index": 0})
+            image_added = True
+        
+        trl_messages.append({
+            "role": trl_role,
+            "content": content
+        })
+
+    # current_image_url = "/data/users/brandon/ob1-projects/InternVL/internvl_chat/rollout_generation/preprocessed_prompts/preprocessing_scripts/AI2D/subset_images/78.png" 
+    
+    
+    return {
+        "messages": trl_messages,
+        "images": [final_mc_prm_data['image_url']]  # List of image URLs/paths
+    }
 
 
 def main():
@@ -430,7 +468,8 @@ def main():
         ds_name = os.path.basename(filename).replace('.jsonl', '')
         os.makedirs(os.path.join(save_dir, 'train'), exist_ok=True)
 
-        pairs_save_path = os.path.join(save_dir, 'train', f'{ds_name}_prm_training_data.jsonl')
+        pairs_save_path = os.path.join(save_dir, 'debug', f'{ds_name}_prm_training_data.jsonl')
+        final_trl_format_save_path = os.path.join(save_dir, 'train', f'{ds_name}_prm_training_data_final_trl_format.jsonl')
         # pairs_orm_save_path = os.path.join(save_dir, 'raw', f'{ds_name}_orm.jsonl')
 
         if os.path.exists(pairs_save_path) and not args.overwrite:
@@ -441,6 +480,7 @@ def main():
         statistics = defaultdict(list)
 
         convs_prm = []
+        final_trl_format_items = []
         # convs_orm = []
         items = load_outputs(os.path.join(args.data_dir, filename))
 
@@ -458,8 +498,8 @@ def main():
             # add a function to check if mc_filtered_item has first step incorrect. If so, then we can skip the item.
             if is_LLM_judge_consensus_filtering(mc_filtered_item, filtered_items): # TODO: collect IDs here to count and check manually
                 convs_prm.append(mc_filtered_item)
-                # final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
-                # convs_prm.append(final_filtered_item)
+                final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
+                final_trl_format_items.append(final_filtered_item)
             else:
                 continue # track rows that failed the consensus filtering in another array that is saved for auditing
             # TODO: collect IDs here to count and check manually
@@ -474,7 +514,9 @@ def main():
         print()
 
         save_outputs(convs_prm, pairs_save_path)
-        print(f"DEBUG: saved {len(convs_prm)} items to {pairs_save_path}")
+        print(f"DEBUG: prefiltered saved {len(convs_prm)} items to {pairs_save_path}")
+
+        save_outputs(final_trl_format_items, final_trl_format_save_path)
         # if args.include_orm_data:
             # save_outputs(convs_orm, pairs_orm_save_path)
 
