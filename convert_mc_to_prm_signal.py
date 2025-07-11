@@ -6,6 +6,27 @@ import re
 
 from constants_and_prompts import PRM_SYSTEM_PROMPT
 
+def transform_image_url_to_s3(image_path):
+    """
+    Transform image path from local path to S3 URL.
+    Replaces '/data/users/brandon/ob1-projects/InternVL/internvl_chat/rollout_generation/preprocessed_prompts/preprocessing_scripts/' 
+    with 's3://arf-share/arf-ob1-mm-reasoning/training_data_images/'
+    """
+    # Handle both relative and absolute paths that contain the target pattern
+    old_pattern = "/data/users/brandon/ob1-projects/InternVL/internvl_chat/rollout_generation/preprocessed_prompts/preprocessing_scripts/"
+    new_base = "s3://arf-share/arf-ob1-mm-reasoning/training_data_images/"
+    
+    # Find the pattern in the path and replace it
+    if old_pattern in image_path:
+        # Split at the pattern and take everything after it
+        parts = image_path.split(old_pattern)
+        if len(parts) > 1:
+            relative_path = parts[-1]  # Take the last part after the pattern
+            return new_base + relative_path
+    else:
+        raise ValueError(f"DEBUG: old_pattern {old_pattern} not found in image_path {image_path}  to replace with {new_base}")
+    
+
 def load_outputs(results_file):
     with open(results_file) as file:
         lines = file.readlines()
@@ -410,7 +431,7 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
 
 
 # follow TRL expected data format
-def final_filter_and_processing_before_training(final_mc_prm_data): # columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
+def final_filter_and_processing_before_training(final_mc_prm_data): # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
     """
     Convert from ShareGPT format to TRL format
     - ShareGPT: {'from': 'human', 'value': 'text'}
@@ -448,7 +469,8 @@ def final_filter_and_processing_before_training(final_mc_prm_data): # columns: (
     
     return {
         "messages": trl_messages,
-        "images": [final_mc_prm_data['image_url']]  # List of image URLs/paths
+        "images": [transform_image_url_to_s3(final_mc_prm_data['image_url'])],  # List of image URLs/paths
+        "id": final_mc_prm_data['id']
     }
 
 
@@ -514,8 +536,6 @@ def main():
         print()
 
         save_outputs(convs_prm, pairs_save_path)
-        print(f"DEBUG: prefiltered saved {len(convs_prm)} items to {pairs_save_path}")
-
         save_outputs(final_trl_format_items, final_trl_format_save_path)
         # if args.include_orm_data:
             # save_outputs(convs_orm, pairs_orm_save_path)
@@ -524,7 +544,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files')
     parser.add_argument('--save-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/prm_training_data')
-    parser.add_argument('--mc-threshold', type=float, default=0.0) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error.
+    parser.add_argument('--mc-threshold', type=float, default=0.8) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error.
     parser.add_argument('--early-stop', action='store_true', default=True)
     parser.add_argument('--overwrite', action='store_true', default=False)
     # parser.add_argument('--include-orm-data', action='store_true', default=False)
