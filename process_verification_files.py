@@ -135,15 +135,20 @@ def save_processed_data(processed_data: List[Dict[str, Any]], output_path: str, 
     logger.info(f"Saved processed data to: {output_path}")
 
 
-def process_model_verification(model: str, dataset_name: str, base_dir: str, output_dir: str, logger: logging.Logger):
+def process_model_verification(model: str, dataset_name: str, dataset_subset_name: str, base_dir: str, output_dir: str, logger: logging.Logger):
     """Process verification files for a single model."""
-    logger.info(f"\nProcessing model: {model}")
+    logger.info(f"\nProcessing model: {model} and dataset subset: {dataset_subset_name}")
+    if dataset_subset_name:
+        dataset_subset_name_str = f"_{dataset_subset_name}"
+    else:
+        dataset_subset_name_str = ""
     
     # File paths
-    batch_query_jsonl_file = f"{base_dir}/flattened_verification_query_files/{dataset_name}_{model}_verification_query_flattened.jsonl"
-    batch_verification_result_json_file = f"{base_dir}/flattened_verification_result_files/{dataset_name}_{model}_verification_result_flattened.json"
-    merged_output_path = os.path.join(output_dir, f"{dataset_name}_{model}_verification_merged.jsonl")
-    final_output_path = f"{output_dir}/{dataset_name}_final_verification_processed_{model}.jsonl"
+    batch_query_jsonl_file = f"{base_dir}/flattened_verification_query_files/{dataset_name}_{model}{dataset_subset_name_str}_verification_query_flattened.jsonl"
+    batch_verification_result_json_file = f"{base_dir}/flattened_verification_result_files/{dataset_name}_{model}{dataset_subset_name_str}_verification_result_flattened.json"
+
+    merged_output_path = os.path.join(output_dir, f"{dataset_name}_{model}{dataset_subset_name_str}_verification_merged.jsonl")
+    final_output_path = f"{output_dir}/{dataset_name}_final_verification_processed_{model}{dataset_subset_name_str}.jsonl"
     
     # Load data
     batch_query_data = load_jsonl_to_dict(batch_query_jsonl_file)
@@ -171,7 +176,14 @@ def main():
     """Main function to process all models."""
     # Configuration
     models = ["gpt-4.1-mini", "gpt-4.1-nano", "o4-mini"]
-    dataset_name = "CLEVR"
+   
+    dataset_subset_split_mapping = {
+        "RAVEN": ["center_single", "distribute_four", "distribute_nine", "in_center_single_out_center_single_train", "in_distribute_four_out_center_single_train", "left_center_single_right_center_single_train", "up_center_single_down_center_single_train"],
+        "CLEVR": ["CLEVR_first_5k", "CLEVR_second_5k"]
+    } 
+    
+    dataset_name = "CLEVR" # TODO: Set this before running
+     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     output_dir = "/mnt/fast10/brandon/mmr_rollout_data/merged_verification_files"
     
@@ -195,12 +207,16 @@ def main():
     
     # Process each model
     for model in models:
-        process_model_verification(model, dataset_name, base_dir, output_dir, logger)
+        if dataset_subset_split_mapping[dataset_name]:
+            for dataset_subset_name in dataset_subset_split_mapping[dataset_name]:
+                process_model_verification(model, dataset_name, dataset_subset_name, base_dir, output_dir, logger)
+        else:
+            process_model_verification(model, dataset_name, None, base_dir, output_dir, logger)
     
     logger.info("Verification processing completed for all models")
 
 
 if __name__ == "__main__":
     main() 
-
+# dataset_name = "CLEVR" # TODO: Set this before running
 # usage: python process_verification_files.py
