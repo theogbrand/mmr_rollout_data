@@ -140,8 +140,8 @@ def process_model_verification(model: str, dataset_name: str, base_dir: str, out
     logger.info(f"\nProcessing model: {model}")
     
     # File paths
-    batch_query_jsonl_file = f"{base_dir}/flattened_verification_query_files/{dataset_name}_{model}_verification_flattened.jsonl"
-    batch_verification_result_json_file = f"{base_dir}/flattened_verification_result_files/{dataset_name}_{model}_verification_flattened.json"
+    batch_query_jsonl_file = f"{base_dir}/flattened_verification_query_files/{dataset_name}_{model}_verification_query_flattened.jsonl"
+    batch_verification_result_json_file = f"{base_dir}/flattened_verification_result_files/{dataset_name}_{model}_verification_result_flattened.json"
     merged_output_path = os.path.join(output_dir, f"{dataset_name}_{model}_verification_merged.jsonl")
     final_output_path = f"{output_dir}/{dataset_name}_final_verification_processed_{model}.jsonl"
     
@@ -171,7 +171,7 @@ def main():
     """Main function to process all models."""
     # Configuration
     models = ["gpt-4.1-mini", "gpt-4.1-nano", "o4-mini"]
-    dataset_name = "AI2D"
+    dataset_name = "CLEVR"
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     output_dir = "/mnt/fast10/brandon/mmr_rollout_data/merged_verification_files"
     
@@ -202,3 +202,5 @@ def main():
 
 if __name__ == "__main__":
     main() 
+
+# usage: python process_verification_files.py
