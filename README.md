@@ -10,7 +10,9 @@
             - This field is a boolean field, which is determined based on first parsing the response from the verification response text between <conclusion> and </conclusion> tags.
             - If extracted text is "Correct" (case insensitive), then the field is set to True, otherwise False.
             - Especially for smaller models like GPT-4.1-mini/nano, the model more likely fails to follow the verification instructions closely and commonly regurgigates trying to answer the question or gives a long chatty response before verifying. We consider these cases as "invalid" and set the field to None. 
-        - Refer to ```process_verification_files.ipynb``` and ```process_verification_files.py``` for more details.
+        - Refer to first half of ```process_verification_files.ipynb``` and ```process_verification_files.py``` for more details.
+        - ```process_verification_files.py``` is the script that merges the verification query and results files. Which gives us 3 files per model in merged_verification_files folder.
+        - Merging the 3 files into 1 file with the rollout file in step 2B below
 
     b. Finally we merge the merged verification and results file (in merged_verification_files folder) with the rollout files (in flattened_rollout_files folder) using "response" text as the intersection key.
         - We made an error here during verification generation, and was supposed to use the rollout "uid" as the "custom_id", and then use that as the intersection key. (which we will update in the next round of rollouts in the verification generation pipeline)
