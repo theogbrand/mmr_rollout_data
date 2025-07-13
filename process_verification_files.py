@@ -179,10 +179,11 @@ def main():
    
     dataset_subset_split_mapping = {
         "RAVEN": ["center_single", "distribute_four", "distribute_nine", "in_center_single_out_center_single_train", "in_distribute_four_out_center_single_train", "left_center_single_right_center_single_train", "up_center_single_down_center_single_train"],
-        "CLEVR": ["CLEVR_first_5k", "CLEVR_second_5k"]
+        "CLEVR": ["CLEVR_first_5k", "CLEVR_second_5k"],
+        "dvqa": ["dvqa_first_5k", "dvqa_second_5k", "dvqa_third_5k"]
     } 
     
-    dataset_name = "RAVEN" # TODO: Set this before running
+    dataset_name = "dvqa" # TODO: Set this before running
      
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     output_dir = "/mnt/fast10/brandon/mmr_rollout_data/merged_verification_files"
