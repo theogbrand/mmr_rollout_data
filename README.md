@@ -16,7 +16,8 @@
             - Merge ("stack") subset files into 1 file to 3 "model-level" files before can finally merge with the rollout file in step 2B below
 
 3   a. Finally we merge the merged verification and results file (in merged_verification_files folder) with the rollout files (in flattened_rollout_files folder) using "response" text as the intersection key.
-        - Refer to ```merge_rollout_and_verification_files.ipynb``` to first ensure datasets with multiple sections are merged into 1 for more details, then proceed to run ```merge_rollout_and_verification_files.py``` to merge the rollout files with the merged verification and results file.
+        - Refer to ```merge_rollout_and_verification_files.ipynb``` to first ensure datasets with multiple sections are merged into 1 for more details, then proceed to run ```python merge_rollout_and_verification_files.py test``` to merge the rollout files with the merged verification and results file.
+            - ```test``` is a flag to run the test function, which is currently only tested for a single dataset (level) so we can check pipeline for data integrity.
         - We made an error here during verification generation, and was supposed to use the rollout "uid" as the "custom_id", and then use that as the intersection key. (which we will update in the next round of rollouts in the verification generation pipeline)
         - But luckily we can still use the "response" text as the intersection key, since the response text should be unique for each rollout. We check for collisions first, to debug and determine a way to merge later.
         - so far we defer this fix to later since there are no collisions. Then we merge the rollout files with the merged verification and results file, using the rollout file as the "reference point", and setting the {model_name}_isVerified field to a value of None if there are no corresponsing verification results for that rollout.
