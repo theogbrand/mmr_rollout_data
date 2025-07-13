@@ -12,10 +12,10 @@
             - This field is a boolean field, which is determined based on first parsing the response from the verification response text between <conclusion> and </conclusion> tags.
             - If extracted text is "Correct" (case insensitive), then the field is set to True, otherwise False.
             - Especially for smaller models like GPT-4.1-mini/nano, the model more likely fails to follow the verification instructions closely and commonly regurgigates trying to answer the question or gives a long chatty response before verifying. We consider these cases as "invalid" and set the field to None. 
-        <!-- - Refer to first half of ```process_verification_files.ipynb``` to flatten the verification query and results files (separate steps), and ```process_verification_files.py``` (main file to run) for more details. -->
+        - Refer to first half of ```process_verification_files.ipynb``` to flatten the verification query and results files (separate steps), and ```process_verification_files.py``` (main file to run) for more details.
         - ```process_verification_files.py``` is the script that merges the verification query and results files. Which gives us 3 files per model, and if model has subset, in merged_verification_files folder, there will be 3 files per model per subset. (CLEVR has 2 subsets so 6 files total - 2 per model)
         - there will be a "verification_merged" file (just the combined query and results files) per model per section, and a "final_verification_processed" file (we parse the response text to get the conclusion if it is correct or incorrect) per model per section.
-            - Merge ("stack") subset files into 1 file to 3 "model-level" files before can finally merge with the rollout file in step 2B below
+            - Merge ("stack") subset files into 1 file to 3 "model-level" files before can finally merge with the rollout file in step 2B below. usethe first part of ```merge_rollout_and_verification_files.ipynb``` to merge the verification query and results files.
 
 3. Goal: Combine the merged verification and results file (in merged_verification_files folder) with the rollout files (in flattened_rollout_files folder) using "response" text as the intersection key.
         - Refer to ```merge_rollout_and_verification_files.ipynb``` to first ensure datasets with multiple sections are merged into 1 for more details, then proceed to run ```python merge_rollout_and_verification_files.py test``` to merge the rollout files with the merged verification and results file.
