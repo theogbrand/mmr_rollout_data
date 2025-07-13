@@ -393,7 +393,8 @@ def process_dataset(dataset_name: str,
                    base_dir: str,
                    model_names: List[str],
                    logger: logging.Logger,
-                   verification_dir: str = "merged_verification_files/model_level_merged_files", # TODO: Check if single or duo level subsets
+                   verification_dir: str = "merged_verification_files", # TODO: Check if single or duo level subsets
+                #    verification_dir: str = "merged_verification_files/model_level_merged_files", # TODO: Check if single or duo level subsets
                    rollout_dir: str = "flattened_rollout_files",
                    output_dir: str = "processed_full_verification_files") -> List[Dict]:
     """
@@ -430,10 +431,19 @@ def process_dataset(dataset_name: str,
     verification_solutions_dict = {}
     for model_name in model_names:
         # safe_model_name = get_safe_model_name(model_name)
+
+        # TODO: Manual hack for now, for ease of use. Use this for version for files with verification subsets within it.
+        # verification_file = os.path.join(
+        #     base_dir, 
+        #     verification_dir, 
+        #     f"{dataset_name}/{dataset_name}_final_subset_merged_verification_processed_{model_name}.jsonl"
+        # )
+
+        # TODO: Use this for version for files without verification subsets within it. (InfoVQA, AI2D, VQAv2). Also need to create the directory to store the merged verification files
         verification_file = os.path.join(
             base_dir, 
             verification_dir, 
-            f"{dataset_name}/{dataset_name}_final_subset_merged_verification_processed_{model_name}.jsonl"
+            f"{dataset_name}/{dataset_name}_final_verification_processed_{model_name}.jsonl"
         )
         
         if os.path.exists(verification_file):
@@ -528,7 +538,7 @@ def test_single_dataset(): # TODO: only tried this, test multiple later
     logger = setup_logger()
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
-    dataset_name = "dvqa"
+    dataset_name = "InfoVQA"
     model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
     
     logger.info("🧪 Testing single dataset processing...")
