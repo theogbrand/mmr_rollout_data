@@ -482,7 +482,7 @@ def main():
         print(f'Dir does not exist: {args.data_dir}')
         exit(0)
 
-    for filename in os.listdir(args.data_dir):
+    for filename in os.listdir(args.data_dir): # TODO: remove later to run on all files
         if not filename.endswith('.jsonl'):
             continue
 
@@ -496,6 +496,8 @@ def main():
         # pairs_orm_save_path = os.path.join(save_dir, 'raw', f'{ds_name}_orm.jsonl')
 
         if os.path.exists(pairs_save_path) and not args.overwrite:
+            print(f'Debug File already exists: {pairs_save_path} or Train file path already exists: {final_trl_format_save_path}')
+            print(f'Skipping file: {filename}')
             continue
 
         info = defaultdict(int)
@@ -518,15 +520,23 @@ def main():
 
         # Core filtering logic comes here:
         for item in filtered_items:
-            mc_filtered_item = item2conv_prm(item)
-            # add a function to check if mc_filtered_item has first step incorrect. If so, then we can skip the item.
-            if is_LLM_judge_consensus_filtering(mc_filtered_item, filtered_items): # TODO: collect IDs here to count and check manually
-                convs_prm.append(mc_filtered_item)
-                final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
-                final_trl_format_items.append(final_filtered_item)
+            if args.consensus_filtering_algo_version == 'v1':
+                print(f'Running v1 consensus filtering algo')
+                # First, we apply the MC threshold to the item and get the "first incorrect step" based on the threshold
+                mc_filtered_item = item2conv_prm(item)
+                # add a function to check if mc_filtered_item has first step incorrect. If so, then we can skip the item.
+                if is_LLM_judge_consensus_filtering(mc_filtered_item, filtered_items): # TODO: collect IDs here to count and check manually
+                    convs_prm.append(mc_filtered_item)
+                    final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
+                    final_trl_format_items.append(final_filtered_item)
+                else:
+                    continue # track rows that failed the consensus filtering in another array that is saved for auditing
+                # TODO: collect IDs here to count and check manually
+            elif args.consensus_filtering_algo_version == 'v2':
+                print(f'Running v2 consensus filtering algo')
+                exit(0)
             else:
-                continue # track rows that failed the consensus filtering in another array that is saved for auditing
-            # TODO: collect IDs here to count and check manually
+                raise ValueError(f"ERROR: Invalid consensus filtering algo version: {args.consensus_filtering_algo_version}")
  
             statistics['num_turns'].append(len(convs_prm[-1]['conversations']))
 
@@ -549,6 +559,7 @@ if __name__ == '__main__':
     parser.add_argument('--mc-threshold', type=float, default=0.8) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error. (0.8 comes from GenPRM recommendation for math reasoning)
     parser.add_argument('--early-stop', action='store_true', default=True)
     parser.add_argument('--overwrite', action='store_true', default=False)
+    parser.add_argument('--consensus-filtering-algo-version', type=str, default='v2') 
     # parser.add_argument('--include-orm-data', action='store_true', default=False)
     args = parser.parse_args()
 
