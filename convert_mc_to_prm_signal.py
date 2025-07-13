@@ -516,6 +516,7 @@ def main():
                 continue
             filtered_items.append(item)
 
+        # Core filtering logic comes here:
         for item in filtered_items:
             mc_filtered_item = item2conv_prm(item)
             # add a function to check if mc_filtered_item has first step incorrect. If so, then we can skip the item.
@@ -545,7 +546,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files')
     parser.add_argument('--save-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/prm_training_data')
-    parser.add_argument('--mc-threshold', type=float, default=0.0) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error.
+    parser.add_argument('--mc-threshold', type=float, default=0.8) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error. (0.8 comes from GenPRM recommendation for math reasoning)
     parser.add_argument('--early-stop', action='store_true', default=True)
     parser.add_argument('--overwrite', action='store_true', default=False)
     # parser.add_argument('--include-orm-data', action='store_true', default=False)
