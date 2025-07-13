@@ -429,6 +429,12 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
         else:
             return False
 
+
+def raw_item_to_model_identified_first_incorrect_step(raw_none_null_verification_rollout_item: dict, all_items_array: list[dict], model_name: str) -> dict:
+    print(f"DEBUG: Converting raw item to model identified first incorrect step")
+    return None
+
+
 def mc_consensus_filtering_v2_algo(raw_none_null_verification_rollout_item: dict, all_items_array: list[dict]) -> dict:
     print(f"DEBUG: Running v2 consensus filtering algo on item: {raw_none_null_verification_rollout_item}")
 
@@ -444,14 +450,15 @@ def mc_consensus_filtering_v2_algo(raw_none_null_verification_rollout_item: dict
             print(f"DEBUG: Returning None because MC and o4-mini do not agree on all steps correct: {mc_filtered_item}")
             print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct")
             # TODO: Implement to take raw_none_null_verification_rollout_item, use o4-mini identified first incorrect step, and output it in the same share_gpt format style as mc_filtered_item, before goes into final TRL filter 
+            print(f"DEBUG: raw_item_to_model_identified_first_incorrect_step: {raw_item_to_model_identified_first_incorrect_step(raw_none_null_verification_rollout_item, all_items_array, 'o4_mini')}")
             exit(0)
-            return None
+            return None # format: # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
     else:
         print(f"DEBUG: Judging a trace where there is an incorrect step in the trace, since by MC score and o4-mini it is not a correct trace.\nWe ignore the first incorrect step identified by MC threshold and only use o4-mini to identify the first incorrect step")
         # identify the first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter 
         # TODO: implement this
 
-        return None
+        return None # format: # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
 
 
 # follow TRL expected data format
