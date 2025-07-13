@@ -208,7 +208,7 @@ def main():
     
     # Process each model
     for model in models:
-        if dataset_subset_split_mapping[dataset_name]:
+        if dataset_name in dataset_subset_split_mapping and dataset_subset_split_mapping[dataset_name]:
             for dataset_subset_name in dataset_subset_split_mapping[dataset_name]:
                 process_model_verification(model, dataset_name, dataset_subset_name, base_dir, output_dir, logger)
         else:
