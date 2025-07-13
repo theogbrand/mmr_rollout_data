@@ -390,7 +390,7 @@ def process_dataset(dataset_name: str,
                    base_dir: str,
                    model_names: List[str],
                    logger: logging.Logger,
-                   verification_dir: str = "merged_verification_files",
+                   verification_dir: str = "merged_verification_files/model_level_merged_files", # TODO: Check if single or duo level subsets
                    rollout_dir: str = "flattened_rollout_files",
                    output_dir: str = "processed_full_verification_files") -> List[Dict]:
     """
@@ -430,14 +430,15 @@ def process_dataset(dataset_name: str,
         verification_file = os.path.join(
             base_dir, 
             verification_dir, 
-            f"{dataset_name}_final_verification_processed_{model_name}.jsonl"
+            f"{dataset_name}/{dataset_name}_final_subset_merged_verification_processed_{model_name}.jsonl"
         )
         
         if os.path.exists(verification_file):
             logger.info(f"\nLoading {model_name} verification data...")
             verification_solutions_dict[model_name] = extract_verification_solutions(verification_file, model_name, logger)
         else:
-            logger.warning(f"{model_name} verification file not found: {verification_file}")
+            logger.error(f"{model_name} verification file not found: {verification_file}")
+            raise FileNotFoundError(f"{model_name} verification file not found: {verification_file}")
             # Continue with empty list for this model
             verification_solutions_dict[model_name] = []
     
@@ -519,12 +520,12 @@ def process_multiple_datasets(dataset_names: List[str],
     return results
 
 
-def test_single_dataset():
+def test_single_dataset(): # TODO: only tried this, test multiple later
     """Test processing a single dataset."""
     logger = setup_logger()
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
-    dataset_name = "AI2D"
+    dataset_name = "CLEVR"
     model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
     
     logger.info("🧪 Testing single dataset processing...")
@@ -596,73 +597,74 @@ def verify_merge_output(merged_file_path: str, logger: logging.Logger):
             logger.info(f"     - Verification accuracy: {accuracy:.2f}%")
 
 
-def example_batch_processing():
-    """Example of processing multiple datasets."""
-    logger = setup_logger()
+# def example_batch_processing():
+#     """Example of processing multiple datasets."""
+#     logger = setup_logger()
     
-    base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
+#     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     
-    # Define datasets to process
-    dataset_names = ["AI2D", "ChartQA", "DocVQA", "InfographicVQA"]
+#     # Define datasets to process
+#     dataset_names = ["AI2D", "ChartQA", "DocVQA", "InfographicVQA"]
     
-    # Define models to include
-    model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
+#     # Define models to include
+#     model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
     
-    # Process all datasets
-    results = process_multiple_datasets(
-        dataset_names,
-        base_dir,
-        model_names,
-        logger
-    )
+#     # Process all datasets
+#     results = process_multiple_datasets(
+#         dataset_names,
+#         base_dir,
+#         model_names,
+#         logger
+#     )
     
-    return results
+#     return results
 
 
-def main():
-    """Example usage of the merge function."""
-    logger = setup_logger()
+# def main():
+    # """Example usage of the merge function."""
+    # logger = setup_logger()
+    # dataset_name = "CLEVR"
+    # # Define paths
+    # base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
+    # # rollout_file = os.path.join(base_dir, "flattened_rollout_files/AI2D_flattened.jsonl")
+    # rollout_file = os.path.join(base_dir, "flattened_rollout_files", f"{dataset_name}_flattened.jsonl")
     
-    # Define paths
-    base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
-    rollout_file = os.path.join(base_dir, "flattened_rollout_files/AI2D_flattened.jsonl")
+    # # Load rollout data
+    # logger.info("Loading rollout data...")
+    # full_raw_rollout_data_array = load_jsonl_file(rollout_file, logger)
     
-    # Load rollout data
-    logger.info("Loading rollout data...")
-    full_raw_rollout_data_array = load_jsonl_file(rollout_file, logger)
+    # # Define verification files for each model
+    # verification_files = {
+    #     "o4-mini": os.path.join(base_dir, f"merged_verification_files/model_verification_files/{dataset_name}_final_subset_merged_verification_processed_o4-mini.jsonl"),
+    #     "gpt-4.1-mini": os.path.join(base_dir, f"merged_verification_files/model_verification_files/{dataset_name}_final_subset_merged_verification_processed_gpt-4.1-mini.jsonl"),
+    #     "gpt-4.1-nano": os.path.join(base_dir, f"merged_verification_files/model_verification_files/{dataset_name}_final_subset_merged_verification_processed_gpt-4.1-nano.jsonl")
+    # }
     
-    # Define verification files for each model
-    verification_files = {
-        "o4-mini": os.path.join(base_dir, "merged_verification_files/AI2D_o4-mini_final_verification_processed_o4-mini.jsonl"),
-        "gpt-4.1-mini": os.path.join(base_dir, "merged_verification_files/AI2D_gpt-4.1-mini_final_verification_processed_gpt-4.1-mini.jsonl"),
-        "gpt-4.1-nano": os.path.join(base_dir, "merged_verification_files/AI2D_gpt-4.1-nano_final_verification_processed_gpt-4.1-nano.jsonl")
-    }
+    # # Load verification solutions for each model
+    # verification_solutions_dict = {}
+    # for model_name, filepath in verification_files.items():
+    #     if os.path.exists(filepath):
+    #         logger.info(f"Loading {model_name} verification data...")
+    #         verification_solutions_dict[model_name] = load_jsonl_file(filepath, logger) # every file is stored as a list of dictionaries containing the verification solutions as a single item
+    #     else:
+    #         logger.warning(f"{model_name} verification file not found: {filepath}")
     
-    # Load verification solutions for each model
-    verification_solutions_dict = {}
-    for model_name, filepath in verification_files.items():
-        if os.path.exists(filepath):
-            logger.info(f"Loading {model_name} verification data...")
-            verification_solutions_dict[model_name] = load_jsonl_file(filepath, logger) # every file is stored as a list of dictionaries containing the verification solutions as a single item
-        else:
-            logger.warning(f"{model_name} verification file not found: {filepath}")
+    # # Define output path
+    # output_path = os.path.join(
+    #     base_dir, 
+    #     "processed_full_verification_files/AI2D_final_all_models_merged.jsonl"
+    # )
     
-    # Define output path
-    output_path = os.path.join(
-        base_dir, 
-        "processed_full_verification_files/AI2D_final_all_models_merged.jsonl"
-    )
+    # # Perform the merge
+    # merged_data = merge_rollout_with_multiple_verifications(
+    #     full_raw_rollout_data_array,
+    #     verification_solutions_dict, # contains the verification solutions for each model
+    #     output_path,
+    #     logger,
+    #     check_collisions=True
+    # )
     
-    # Perform the merge
-    merged_data = merge_rollout_with_multiple_verifications(
-        full_raw_rollout_data_array,
-        verification_solutions_dict, # contains the verification solutions for each model
-        output_path,
-        logger,
-        check_collisions=True
-    )
-    
-    logger.info(f"Merge complete! Output saved to: {output_path}")
+    # logger.info(f"Merge complete! Output saved to: {output_path}")
 
 
 if __name__ == "__main__":
@@ -671,10 +673,11 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "test":
             # Run test on single dataset
+            # TODO: Only this is tested for now. Change Dataset name above
             test_single_dataset()
-        elif sys.argv[1] == "batch":
-            # Run batch processing
-            example_batch_processing()
+        # elif sys.argv[1] == "batch":
+        #     # Run batch processing
+        #     example_batch_processing()
         elif sys.argv[1] == "verify":
             # Verify a specific output file
             if len(sys.argv) > 2:
@@ -682,6 +685,6 @@ if __name__ == "__main__":
                 verify_merge_output(sys.argv[2], logger)
             else:
                 print("Usage: python script.py verify <path_to_merged_file>")
-    else:
+    # else:
         # Run default main function
-        main() 
+        # main() # not tested yet 
