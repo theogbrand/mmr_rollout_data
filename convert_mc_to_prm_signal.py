@@ -375,7 +375,7 @@ def parse_first_incorrect_step_from_verification(verification_solution):
     return (last_section, last_step_num - 1)  # Convert to 0-based
 
 
-def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
+def check_all_step_correct_consensus(mc_filtered_item: dict, all_items_array: list[dict], verification_columns: list[str]) -> bool:
     target_id = mc_filtered_item['id']
     
     print(f"DEBUG: Looking for item with id: {target_id}")
@@ -389,10 +389,10 @@ def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
         raise ValueError(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
     
     matching_item = matching_items[0]
-    print(f"DEBUG: Found matching item for id: {target_id}")
+    print(f"DEBUG: Found ONLY ONE matching item for id: {target_id}")
     
     # Check the verification columns
-    verification_columns = ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified']
+    # verification_columns = ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified']
     
     verification_status = {}
     for col in verification_columns:
@@ -410,7 +410,7 @@ def check_all_step_correct_consensus(mc_filtered_item, all_items_array):
     # Check if all verification columns are True
     all_verified = all(verification_status[col] for col in verification_columns)
     
-    print(f"DEBUG: All verification columns True for id {target_id}: {all_verified}")
+    print(f"DEBUG: verification columns {verification_columns} are all True for id {target_id}: {all_verified}")
     return all_verified
 
 
@@ -420,7 +420,7 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
         print(f"DEBUG: Judging a trace where all MC steps are correct with threshold selected")
         # just need to check if {model_name}_isVerified is True for all models
             # if check is True, then return True
-        return check_all_step_correct_consensus(mc_filtered_item, all_items_array)
+        return check_all_step_correct_consensus(mc_filtered_item, all_items_array, ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified'])
 
     else: # check if first incorrect step is the same for verification traces; consensus for incorrect
         print(f"DEBUG: Judging a trace where there is an incorrect step in the trace, first check if LLM judges agree there is an incorrect step, then check if the index of the first incorrect step is the same for MC and LLM judges")
@@ -428,6 +428,30 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
             return is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered_item, all_items_array)# TODO: collect IDs here to count and check manually
         else:
             return False
+
+def mc_consensus_filtering_v2_algo(raw_none_null_verification_rollout_item: dict, all_items_array: list[dict]) -> dict:
+    print(f"DEBUG: Running v2 consensus filtering algo on item: {raw_none_null_verification_rollout_item}")
+
+    # MC threshold and o4-mini agree on all steps correct:
+    mc_filtered_item = item2conv_prm(raw_none_null_verification_rollout_item) # outputs ["first_incorrect_step"] = None if all steps are correct, otherwise (section, step_index) of first incorrect step based on MC threshold
+    if mc_filtered_item['first_incorrect_step'] is None:
+        print(f"DEBUG: Judging a trace where all MC steps are correct with threshold config set to {args.mc_threshold}")
+        if check_all_step_correct_consensus(mc_filtered_item, all_items_array, ['o4_mini_isVerified']): # only choose o4_mini
+            print(f"DEBUG: MC threshold and o4-mini agree on all steps correct")
+            print(f"DEBUG: returning mc_filtered_item with MC and o4-mini agree on all steps correct: {mc_filtered_item}")
+            return mc_filtered_item
+        else:
+            print(f"DEBUG: Returning None because MC and o4-mini do not agree on all steps correct: {mc_filtered_item}")
+            print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct")
+            # TODO: Implement to take raw_none_null_verification_rollout_item, use o4-mini identified first incorrect step, and output it in the same share_gpt format style as mc_filtered_item, before goes into final TRL filter 
+            exit(0)
+            return None
+    else:
+        print(f"DEBUG: Judging a trace where there is an incorrect step in the trace, since by MC score and o4-mini it is not a correct trace.\nWe ignore the first incorrect step identified by MC threshold and only use o4-mini to identify the first incorrect step")
+        # identify the first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter 
+        # TODO: implement this
+
+        return None
 
 
 # follow TRL expected data format
@@ -534,14 +558,14 @@ def main():
                 # TODO: collect IDs here to count and check manually
             elif args.consensus_filtering_algo_version == 'v2':
                 print(f'Running v2 consensus filtering algo')
-                mc_filtered_item = item2conv_prm(item)
-                if is_mc_consensus_filtering_v2_algo(mc_filtered_item, filtered_items):
-                    convs_prm.append(mc_filtered_item)
-                    final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
+                mc_consensus_filtered_v2_item = mc_consensus_filtering_v2_algo(item, filtered_items) # expected output schema: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
+
+                if mc_consensus_filtered_v2_item is not None:
+                    convs_prm.append(mc_consensus_filtered_v2_item)
+
+                    final_filtered_item = final_filter_and_processing_before_training(mc_consensus_filtered_v2_item)
+
                     final_trl_format_items.append(final_filtered_item)
-                else:
-                    continue # track rows that failed the consensus filtering in another array that is saved for auditing
-                exit(0)
             else:
                 raise ValueError(f"ERROR: Invalid consensus filtering algo version: {args.consensus_filtering_algo_version}")
  
