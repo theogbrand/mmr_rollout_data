@@ -538,7 +538,7 @@ def test_single_dataset(): # TODO: only tried this, test multiple later
     logger = setup_logger()
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
-    dataset_name = "InfoVQA"
+    dataset_name = "vqav2"
     model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
     
     logger.info("🧪 Testing single dataset processing...")

@@ -183,7 +183,7 @@ def main():
         "dvqa": ["dvqa_first_5k", "dvqa_second_5k", "dvqa_third_5k"]
     } 
     
-    dataset_name = "InfoVQA" # TODO: Set this before running
+    dataset_name = "vqav2" # TODO: Set this before running
      
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     output_dir = "/mnt/fast10/brandon/mmr_rollout_data/merged_verification_files"
