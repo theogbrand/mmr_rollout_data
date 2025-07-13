@@ -2,6 +2,7 @@
     - there will be equal number of verification queries as rollouts (25557 for AI2D), but the verification results will be less than that, because some of the queries were error-ed out when we ran out of credits for the batch API.
     - the verification results become the "limiting factor" for the number of valid rollouts we can use for training.
     - Refer to ```flatten_rollout_and_verification_files.ipynb``` (main file to run) for more details.
+    - Creates a {dataset_name}_flattened.jsonl file in flattened_rollout_files folder.
 
 2. 
     a. Then we merge the flattened verification queries with the verification results into a single file, using "custom_id" as the intersection key.
@@ -10,7 +11,7 @@
             - This field is a boolean field, which is determined based on first parsing the response from the verification response text between <conclusion> and </conclusion> tags.
             - If extracted text is "Correct" (case insensitive), then the field is set to True, otherwise False.
             - Especially for smaller models like GPT-4.1-mini/nano, the model more likely fails to follow the verification instructions closely and commonly regurgigates trying to answer the question or gives a long chatty response before verifying. We consider these cases as "invalid" and set the field to None. 
-        - Refer to first half of ```process_verification_files.ipynb``` and ```process_verification_files.py``` (main file to run) for more details.
+        - Refer to first half of ```process_verification_files.ipynb``` to flatten the verification query and results files (separate steps), and ```process_verification_files.py``` (main file to run) for more details.
         - ```process_verification_files.py``` is the script that merges the verification query and results files. Which gives us 3 files per model, and if model has subset, in merged_verification_files folder, there will be 3 files per model per subset. (CLEVR has 2 subsets so 6 files total - 2 per model)
         - there will be a "verification_merged" file per model per section, and a "final_verification_processed" file per model per section.
             - Merge ("stack") subset files into 1 file to 3 "model-level" files before can finally merge with the rollout file in step 2B below
