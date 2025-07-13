@@ -504,8 +504,8 @@ def main():
         # id2scores = defaultdict(list)
         statistics = defaultdict(list)
 
-        convs_prm = []
-        final_trl_format_items = []
+        convs_prm = [] # "conversations prm for debugging"
+        final_trl_format_items = [] # "final trl format items for training"
         # convs_orm = []
         items = load_outputs(os.path.join(args.data_dir, filename))
 
@@ -534,6 +534,13 @@ def main():
                 # TODO: collect IDs here to count and check manually
             elif args.consensus_filtering_algo_version == 'v2':
                 print(f'Running v2 consensus filtering algo')
+                mc_filtered_item = item2conv_prm(item)
+                if is_mc_consensus_filtering_v2_algo(mc_filtered_item, filtered_items):
+                    convs_prm.append(mc_filtered_item)
+                    final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
+                    final_trl_format_items.append(final_filtered_item)
+                else:
+                    continue # track rows that failed the consensus filtering in another array that is saved for auditing
                 exit(0)
             else:
                 raise ValueError(f"ERROR: Invalid consensus filtering algo version: {args.consensus_filtering_algo_version}")
