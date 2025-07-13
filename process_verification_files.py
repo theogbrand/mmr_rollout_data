@@ -182,7 +182,7 @@ def main():
         "CLEVR": ["CLEVR_first_5k", "CLEVR_second_5k"]
     } 
     
-    dataset_name = "CLEVR" # TODO: Set this before running
+    dataset_name = "RAVEN" # TODO: Set this before running
      
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
     output_dir = "/mnt/fast10/brandon/mmr_rollout_data/merged_verification_files"
