@@ -258,14 +258,14 @@ def merge_rollout_with_multiple_verifications(
         # Start with base rollout fields
         merged_item = {
             # TODO: For Raven, there is an "id" key, but others is a self-constructed "uid" so change accordingly
-            "prompt_uid": rollout_item["id"], # this is actually the unique Prompt ID, so the actually uuid is something else.
+            "prompt_uid": rollout_item["uid"], # this is actually the unique Prompt ID, so the actually uuid is something else.
             "rollout_question": rollout_item["question"],
             "rollout_response": rollout_item["response"],
             # TODO: For Raven, there is a "corect_answer" key instead of "answer", change accordingly
-            "rollout_ground_truth_answer": rollout_item["correct_answer"],
+            "rollout_ground_truth_answer": rollout_item["answer"],
             "rollout_steps_with_score": rollout_item["steps_with_score"],
             # TODO: Also changed for raven from "combined_image_path" to "image_path"
-            "rollout_image_path": rollout_item["combined_image_path"],
+            "rollout_image_path": rollout_item["image_path"],
             "rollout_uuid": str(uuid.uuid4())  # this is the actual uuid of the rollout item
         }
         
@@ -528,7 +528,7 @@ def test_single_dataset(): # TODO: only tried this, test multiple later
     logger = setup_logger()
     
     base_dir = "/mnt/fast10/brandon/mmr_rollout_data"
-    dataset_name = "RAVEN"
+    dataset_name = "dvqa"
     model_names = ["o4-mini", "gpt-4.1-mini", "gpt-4.1-nano"]
     
     logger.info("🧪 Testing single dataset processing...")
