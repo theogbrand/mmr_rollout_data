@@ -808,38 +808,9 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
         print(f"DEBUG: Raw item is in o4-mini incorrect items, processing item to first incorrect step identified by o4-mini")
         # we assume o4-mini knowns better, do not care if it agrees with MC or not, just return the item with the first incorrect step identified by o4-mini. This group is 1)** o4-mini incorrect, and MC agrees 2)** o4-mini incorrect, and MC disagrees
         print(f"DEBUG: returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')}")
-        exit()
         return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')
         
-    # return format: # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score', "consensus_filtering_algo_label" -> "o4-mini_incorrect_and_MC_agrees_and_disagrees", "o4-mini_correct_and_MC_agrees", "o4-mini_correct_and_MC_disagrees"], "verifier_identified_first_incorrect_step_solution")
-
-# old consensus filtering v2 algo:
-# def mc_consensus_filtering_v2_algo(raw_none_null_verification_rollout_item: dict, all_items_array: list[dict]) -> dict:
-#     print(f"DEBUG: Running v2 consensus filtering algo on item: {raw_none_null_verification_rollout_item}")
-
-#     # MC threshold and o4-mini agree on all steps correct:
-#     mc_filtered_item = item2conv_prm(raw_none_null_verification_rollout_item) # outputs ["first_incorrect_step"] = None if all steps are correct, otherwise (section, step_index) of first incorrect step based on MC threshold
-#     if mc_filtered_item['first_incorrect_step'] is None:
-#         print(f"DEBUG: Judging a trace where all MC steps are correct with threshold config set to {args.mc_threshold}")
-#         if check_all_step_correct_consensus(mc_filtered_item, all_items_array, ['o4_mini_isVerified']): # only choose o4_mini
-#             print(f"DEBUG: MC threshold and o4-mini agree on all steps correct")
-#             print(f"DEBUG: returning mc_filtered_item with MC and o4-mini agree on all steps correct: {mc_filtered_item}")
-#             return mc_filtered_item
-#         else: # we assume o4-mini knows better than MC
-#             print(f"DEBUG: Returning None because MC and o4-mini do not agree on all steps correct: {mc_filtered_item}")
-#             print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct")
-#             # TODO: Implement to take raw_none_null_verification_rollout_item, use o4-mini identified first incorrect step, and output it in the same share_gpt format style as mc_filtered_item, before goes into final TRL filter 
-#             print(f"DEBUG: raw_item_to_model_identified_first_incorrect_step: {raw_item_to_model_identified_first_incorrect_step(raw_none_null_verification_rollout_item, all_items_array, 'o4_mini')}")
-#             exit(0)
-#             return None # format: # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
-#     else:
-#         print(f"DEBUG: Judging a trace where there is an incorrect step in the trace, since by MC score and o4-mini it is not a correct trace.\nWe ignore the first incorrect step identified by MC threshold and only use o4-mini to identify the first incorrect step")
-#         # identify the first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter 
-#         # TODO: implement this
-
-#         print(f"DEBUG: MC_filtered_item found that it is not all steps correct: {mc_filtered_item}")
-#         print(f"DEBUG: raw_item_to_model_identified_first_incorrect_step: {raw_item_to_model_identified_first_incorrect_step(raw_none_null_verification_rollout_item, all_items_array, 'o4_mini')}")
-#         return None # format: # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
+    # returns final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score', "consensus_filtering_algo_label" -> "o4-mini_incorrect_and_MC_agrees_and_disagrees", "o4-mini_correct_and_MC_agrees", "o4-mini_correct_and_MC_disagrees"], "verifier_identified_first_incorrect_step_solution")
 
 
 # follow TRL expected data format
@@ -876,9 +847,6 @@ def final_filter_and_processing_before_training(final_mc_prm_data): # final_mc_p
             "content": content
         })
 
-    # current_image_url = "/data/users/brandon/ob1-projects/InternVL/internvl_chat/rollout_generation/preprocessed_prompts/preprocessing_scripts/AI2D/subset_images/78.png" 
-    
-    
     return {
         "messages": trl_messages,
         "images": [transform_image_url_to_s3(final_mc_prm_data['image_url'])],  # List of image URLs/paths
@@ -932,7 +900,7 @@ def check_data_integrity_of_convsprm(convs_prm, filtered_items):
     if total_count != len(filtered_items):
         raise ValueError(f"ERROR: Total label counts ({total_count}) != len(filtered_items) ({len(filtered_items)})")
 
-    print(f"SUCCESS: All validation checks passed. Processed {len(filtered_items)} items with {len(unique_labels)} unique consensus labels.")
+    print(f"SUCCESS: All validation checks in check_data_integrity_of_convsprm passed. Processed {len(filtered_items)} items with {len(unique_labels)} unique consensus labels.")
 
 
 def main():
