@@ -50,6 +50,7 @@ def transform_image_url_to_s3(image_path):
             relative_path = parts[-1]  # Take the last part after the pattern
             return new_base + relative_path
     else:
+        logger.error(f"DEBUG: old_pattern {old_pattern} not found in image_path {image_path}  to replace with {new_base}")
         raise ValueError(f"DEBUG: old_pattern {old_pattern} not found in image_path {image_path}  to replace with {new_base}")
     
 
@@ -135,6 +136,7 @@ def item2conv_prm(item):
                 step_solution = f'### Question:\n{question}\n\n### Solution Process:\n[Visual Elements]\n{xml_step}'
                 current_section = section
             else:
+                logger.error(f"Step solution not found in step_to_section_and_xml: {step_solution}")
                 raise ValueError(f"Step solution not found in step_to_section_and_xml: {step_solution}")
         else:
             # Check if this step has XML tags and section info
@@ -223,8 +225,10 @@ def is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
     matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]
     
     if len(matching_items) == 0:
+        logger.error(f"ERROR: Could not find item with id {target_id} in all_items_array")
         raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
     elif len(matching_items) > 1:
+        logger.error(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
         raise ValueError(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
     
     matching_item = matching_items[0]
@@ -264,6 +268,7 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
     
     section, step_index = mc_first_incorrect_step
     if section not in ['Visual Elements', 'Reasoning']:
+        logger.error(f"ERROR: first element of mc_first_incorrect_step must be 'Visual Elements' or 'Reasoning', got: {section}")
         raise ValueError(f"ERROR: first element of mc_first_incorrect_step must be 'Visual Elements' or 'Reasoning', got: {section}")
     
     if not isinstance(step_index, int):
@@ -277,8 +282,10 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
     matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]
     
     if len(matching_items) == 0:
+        logger.error(f"ERROR: Could not find item with id {target_id} in all_items_array")
         raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
     elif len(matching_items) > 1:
+        logger.error(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
         raise ValueError(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
     
     mc_matching_full_item = matching_items[0]
@@ -349,6 +356,7 @@ def parse_first_incorrect_step_from_verification(verification_solution):
     Therefore, the proper conclusion is "Incorrect."
     """
     if not verification_solution:
+        logger.error("ERROR: verification_solution is empty")
         raise ValueError("ERROR: verification_solution is empty")
     
     # Check that the conclusion is "Incorrect" or "incorrect"
@@ -356,10 +364,12 @@ def parse_first_incorrect_step_from_verification(verification_solution):
     conclusion_match = re.search(conclusion_pattern, verification_solution, re.DOTALL)
     
     if not conclusion_match:
+        logger.error("ERROR: No conclusion tag found in verification_solution")
         raise ValueError("ERROR: No conclusion tag found in verification_solution")
     
     conclusion_text = conclusion_match.group(1).strip()
     if conclusion_text.lower() != "incorrect":
+        logger.error(f"ERROR: Expected conclusion to be 'Incorrect' or 'incorrect', got: '{conclusion_text}'")
         raise ValueError(f"ERROR: Expected conclusion to be 'Incorrect' or 'incorrect', got: '{conclusion_text}'")
     
     # Find all analysis blocks with their sections
@@ -390,6 +400,7 @@ def parse_first_incorrect_step_from_verification(verification_solution):
             analysis_blocks.append(("Reasoning", step_num))
     
     if not analysis_blocks: # happens when verification solution does not have the [Visual Elements] or [Reasoning] section but has a conclusion. we manually change their o4_mini_isVerified to None manually using edit_final_combined_MC_and_verification_files_manually.ipynb for now
+        logger.error("ERROR: No analysis block found in verification_solution")
         raise ValueError("ERROR: No analysis block found in verification_solution")
     
     # Return the last analysis block (first incorrect step)
@@ -433,6 +444,7 @@ def parse_first_correct_step_from_verification(verification_solution):
     Therefore, the proper conclusion is "Correct."
     """
     if not verification_solution:
+        logger.error("ERROR: verification_solution is empty")
         raise ValueError("ERROR: verification_solution is empty")
     
     # Check that the conclusion is "Incorrect" or "incorrect"
@@ -440,10 +452,12 @@ def parse_first_correct_step_from_verification(verification_solution):
     conclusion_match = re.search(conclusion_pattern, verification_solution, re.DOTALL)
     
     if not conclusion_match:
+        logger.error("ERROR: No conclusion tag found in verification_solution")
         raise ValueError("ERROR: No conclusion tag found in verification_solution")
     
     conclusion_text = conclusion_match.group(1).strip()
     if conclusion_text.lower() != "correct":
+        logger.error(f"ERROR: Expected conclusion to be 'Correct' or 'correct', got: '{conclusion_text}'")
         raise ValueError(f"ERROR: Expected conclusion to be 'Correct' or 'correct', got: '{conclusion_text}'")
     
     # # Find all analysis blocks with their sections
@@ -494,8 +508,10 @@ def check_all_step_correct_consensus(mc_filtered_item: dict, all_items_array: li
     matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]  # based on item2conv_prm, id comes from rollout_uuid
     
     if len(matching_items) == 0:
+        logger.error(f"ERROR: Could not find item with id {target_id} in all_items_array")
         raise ValueError(f"ERROR: Could not find item with id {target_id} in all_items_array")
     elif len(matching_items) > 1:
+        logger.error(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
         raise ValueError(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
     
     matching_item = matching_items[0]
@@ -555,6 +571,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
         verifier_identified_first_incorrect_step = parse_first_incorrect_step_from_verification(verification_solution) # returns (first_incorrect_section_name, first_incorrect_step_num)  # 0-based
         logger.debug(f"o4-mini identified first incorrect step: {verifier_identified_first_incorrect_step}")
     else:
+        logger.error(f"ERROR: Model {model_to_identify_first_incorrect_step} not supported")
         raise ValueError(f"ERROR: Model {model_to_identify_first_incorrect_step} not supported")
 
     # conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}]
@@ -620,6 +637,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
                 step_solution = f'### Question:\n{question}\n\n### Solution Process:\n[Visual Elements]\n{xml_step}'
                 current_section = section
             else:
+                logger.error(f"Step solution not found in step_to_section_and_xml: {step_solution}")
                 raise ValueError(f"Step solution not found in step_to_section_and_xml: {step_solution}")
         else:
             # Check if this step has XML tags and section info
@@ -682,6 +700,7 @@ def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: di
         verification_solution = raw_not_null_verification_rollout_item['o4_mini_verification_solution']
         verifier_identified_first_incorrect_step = parse_first_correct_step_from_verification(verification_solution) # returns (first_incorrect_section_name, first_incorrect_step_num)  # 0-based
     else:
+        logger.error(f"ERROR: Model {model_to_identify_first_incorrect_step} not supported")
         raise ValueError(f"ERROR: Model {model_to_identify_first_incorrect_step} not supported")
 
     # conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}]
@@ -747,6 +766,7 @@ def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: di
                 step_solution = f'### Question:\n{question}\n\n### Solution Process:\n[Visual Elements]\n{xml_step}'
                 current_section = section
             else:
+                logger.error(f"Step solution not found in step_to_section_and_xml: {step_solution}")
                 raise ValueError(f"Step solution not found in step_to_section_and_xml: {step_solution}")
         else:
             # Check if this step has XML tags and section info
@@ -804,6 +824,7 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
 
     # verify that total number of items is the sum of correct and incorrect items
     if len(o4_mini_correct_items) + len(o4_mini_incorrect_items) != len(all_items_array):
+        logger.error(f"ERROR: Total number of items is not the sum of correct and incorrect items")
         raise ValueError(f"ERROR: Total number of items is not the sum of correct and incorrect items")
     
     # we then check if the raw_not_null_verification_rollout_item is in o4-mini correct items
@@ -892,6 +913,7 @@ def check_data_integrity_of_convsprm(convs_prm, filtered_items):
     consensus_labels = []
     for item in convs_prm:
         if "consensus_filtering_algo_label" not in item:
+            logger.error(f"ERROR: Item missing 'consensus_filtering_algo_label' field: {item['id']}")
             raise ValueError(f"ERROR: Item missing 'consensus_filtering_algo_label' field: {item['id']}")
         consensus_labels.append(item["consensus_filtering_algo_label"])
 
@@ -907,6 +929,7 @@ def check_data_integrity_of_convsprm(convs_prm, filtered_items):
 
     # Check that we have exactly the expected 3 unique values
     if unique_labels != expected_labels:
+        logger.error(f"ERROR: Expected consensus filtering algo labels {expected_labels}, but got {unique_labels}")
         raise ValueError(f"ERROR: Expected consensus filtering algo labels {expected_labels}, but got {unique_labels}")
 
     # Count occurrences of each label
@@ -923,10 +946,12 @@ def check_data_integrity_of_convsprm(convs_prm, filtered_items):
 
     # Check that len(convs_prm) == len(filtered_items)
     if len(convs_prm) != len(filtered_items):
+        logger.error(f"ERROR: len(convs_prm) ({len(convs_prm)}) != len(filtered_items) ({len(filtered_items)})")
         raise ValueError(f"ERROR: len(convs_prm) ({len(convs_prm)}) != len(filtered_items) ({len(filtered_items)})")
 
     # Additional validation that total counts match
     if total_count != len(filtered_items):
+        logger.error(f"ERROR: Total label counts ({total_count}) != len(filtered_items) ({len(filtered_items)})")
         raise ValueError(f"ERROR: Total label counts ({total_count}) != len(filtered_items) ({len(filtered_items)})")
 
     logger.info(f"SUCCESS: All validation checks in check_data_integrity_of_convsprm passed. Processed {len(filtered_items)} items with {len(unique_labels)} unique consensus labels.")
@@ -1002,6 +1027,7 @@ def main():
 
                     final_trl_format_items.append(final_filtered_item)
             else:
+                logger.error(f"ERROR: Invalid consensus filtering algo version: {args.consensus_filtering_algo_version}")
                 raise ValueError(f"ERROR: Invalid consensus filtering algo version: {args.consensus_filtering_algo_version}")
  
             
