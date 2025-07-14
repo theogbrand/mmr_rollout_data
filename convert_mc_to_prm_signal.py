@@ -1,10 +1,36 @@
 import json
 import os
+import logging
+from datetime import datetime
 from argparse import ArgumentParser
 from collections import defaultdict
 import re
 
 from constants_and_prompts import PRM_SYSTEM_PROMPT
+
+# Set up logging
+def setup_logging():
+    log_dir = "consensus_filtering_to_prm_signal_conversion_logs"
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Create a timestamped log file
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(log_dir, f"conversion_{timestamp}.log")
+    
+    # Configure logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()  # Also log to console
+        ]
+    )
+    
+    return logging.getLogger(__name__)
+
+logger = setup_logging()
+
 
 def transform_image_url_to_s3(image_path):
     """
@@ -40,7 +66,7 @@ def save_outputs(outputs, results_file):
         for output in outputs:
             file.write(json.dumps(output) + '\n')
 
-    print(f'Results ({len(outputs)=}) saved to {results_file}')
+    logger.info(f'Results ({len(outputs)=}) saved to {results_file}')
 
 
 def item2conv_prm(item):
@@ -216,11 +242,11 @@ def is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array):
         
         # If any verifier thinks all steps are correct, consensus fails
         if is_verified:
-            print(f"DEBUG: {col} has isVerified=True, but MC found incorrect a negative step, for id {target_id}, where full item is {matching_item} and MC filtered item is {mc_filtered_item}. No consensus on error existence.")
+            logger.debug(f"{col} has isVerified=True, but MC found incorrect a negative step, for id {target_id}, where full item is {matching_item} and MC filtered item is {mc_filtered_item}. No consensus on error existence.")
             return False
     
-    print(f"DEBUG: Both MC score and LLM judges agrees there is an error for id {target_id}")
-    print(f"DEBUG: full item {matching_item} and MC filtered item is {mc_filtered_item}. all consensus for MC and LLM judges for INCORRECT sample, checking if index of first incorrect step is the same next.")
+    logger.debug(f"Both MC score and LLM judges agrees there is an error for id {target_id}")
+    logger.debug(f"full item {matching_item} and MC filtered item is {mc_filtered_item}. all consensus for MC and LLM judges for INCORRECT sample, checking if index of first incorrect step is the same next.")
     return True
 
 
@@ -230,9 +256,9 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
     Assumes is_llm_judges_consensus_for_incorrect has already returned True.
     """
     # Validate that first_incorrect_step is in the expected format
-    print(f"DEBUG: now checking if index of first incorrect step is the same for MC and LLM judges")
+    logger.debug(f"now checking if index of first incorrect step is the same for MC and LLM judges")
     mc_first_incorrect_step = mc_filtered_item.get('first_incorrect_step')
-    print(f"DEBUG: mc_first_incorrect_step: {mc_first_incorrect_step}")
+    logger.debug(f"mc_first_incorrect_step: {mc_first_incorrect_step}")
     if not isinstance(mc_first_incorrect_step, tuple) or len(mc_first_incorrect_step) != 2:
         raise TypeError(f"ERROR: mc_first_incorrect_step must be a tuple of length 2, got {type(mc_first_incorrect_step).__name__}: {mc_first_incorrect_step}")
     
@@ -245,7 +271,7 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
     
     # find the full item in all_items_array that has the same id as the mc_filtered_item
     target_id = mc_filtered_item['id']
-    print(f"DEBUG: Checking step consensus for id: {target_id} with MC first_incorrect_step: {mc_first_incorrect_step}")
+    logger.debug(f"Checking step consensus for id: {target_id} with MC first_incorrect_step: {mc_first_incorrect_step}")
     
     # Find the matching item in all_items_array, so we can get the verification solution, it was filtered out by the MC threshold filtering condition - ensure exactly one match
     matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]
@@ -271,22 +297,22 @@ def is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered
         
         # Parse the verification solution to find the first incorrect step
         verification_solution = mc_matching_full_item[verification_solution_col]
-        print(f"DEBUG: model_name: {model_name}, verification_solution: {verification_solution}")
+        logger.debug(f"model_name: {model_name}, verification_solution: {verification_solution}")
         try:
             verifier_first_incorrect = parse_first_incorrect_step_from_verification(verification_solution)
         except Exception as e:
-            print(f"DEBUG: {model_name} failed to parse verification_solution: {e}. No consensus possible.")
+            logger.debug(f"{model_name} failed to parse verification_solution: {e}. No consensus possible.")
             return False
         
         # Compare with MC's first incorrect step
         if verifier_first_incorrect != mc_first_incorrect_step:
-            print(f"DEBUG: {model_name} first incorrect step {verifier_first_incorrect} doesn't match MC {mc_first_incorrect_step}. No consensus on step index.")
+            logger.debug(f"{model_name} first incorrect step {verifier_first_incorrect} doesn't match MC {mc_first_incorrect_step}. No consensus on step index.")
             return False
         
-        print(f"DEBUG: {model_name} agrees with MC on first incorrect step: {mc_first_incorrect_step}")
+        logger.debug(f"{model_name} agrees with MC on first incorrect step: {mc_first_incorrect_step}")
     
     # All models agree with MC on the first incorrect step
-    print(f"DEBUG: All verification models agree with MC on first incorrect step for id {target_id}")
+    logger.debug(f"All verification models agree with MC on first incorrect step for id {target_id}")
     return True
 
 
@@ -371,7 +397,7 @@ def parse_first_incorrect_step_from_verification(verification_solution):
     # Normalize Perception to Visual Elements for consistency
     if last_section == 'Perception':
         last_section = 'Visual Elements'
-    print(f"DEBUG: returning (last_section, last_step_num - 1): {(last_section, last_step_num - 1)}")
+    logger.debug(f"returning (last_section, last_step_num - 1): {(last_section, last_step_num - 1)}")
     return (last_section, last_step_num - 1)  # Convert to 0-based
 
 def parse_first_correct_step_from_verification(verification_solution):
@@ -455,14 +481,14 @@ def parse_first_correct_step_from_verification(verification_solution):
     # Normalize Perception to Visual Elements for consistency
     if last_section == 'Perception':
         last_section = 'Visual Elements'
-    print(f"DEBUG: returning (last_section, last_step_num - 1): {(last_section, last_step_num - 1)}")
+    logger.debug(f"returning (last_section, last_step_num - 1): {(last_section, last_step_num - 1)}")
     return (last_section, last_step_num - 1)  # Convert to 0-based
 
 
 def check_all_step_correct_consensus(mc_filtered_item: dict, all_items_array: list[dict], verification_columns: list[str]) -> bool:
     target_id = mc_filtered_item['id']
     
-    print(f"DEBUG: Looking for item with id: {target_id}")
+    logger.debug(f"Looking for item with id: {target_id}")
     
     # Find the matching item in all_items_array - ensure exactly one match
     matching_items = [item for item in all_items_array if item.get('rollout_uuid') == target_id]  # based on item2conv_prm, id comes from rollout_uuid
@@ -473,7 +499,7 @@ def check_all_step_correct_consensus(mc_filtered_item: dict, all_items_array: li
         raise ValueError(f"ERROR: Found {len(matching_items)} items with id {target_id} in all_items_array, expected exactly 1")
     
     matching_item = matching_items[0]
-    print(f"DEBUG: Found ONLY ONE matching item for id: {target_id}")
+    logger.debug(f"Found ONLY ONE matching item for id: {target_id}")
     
     # Check the verification columns
     # verification_columns = ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified']
@@ -489,25 +515,25 @@ def check_all_step_correct_consensus(mc_filtered_item: dict, all_items_array: li
         
         verification_status[col] = value
     
-    print(f"DEBUG: Verification status for id {target_id}: {verification_status}")
+    logger.debug(f"Verification status for id {target_id}: {verification_status}")
     
     # Check if all verification columns are True
     all_verified = all(verification_status[col] for col in verification_columns)
     
-    print(f"DEBUG: verification columns {verification_columns} are all True for id {target_id}: {all_verified}")
+    logger.debug(f"verification columns {verification_columns} are all True for id {target_id}: {all_verified}")
     return all_verified
 
 
 def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
     # if mc filtered item is correct; consensus for correct
     if mc_filtered_item['first_incorrect_step'] is None: # TODO: collect IDs here to count and check manually
-        print(f"DEBUG: Judging a trace where all MC steps are correct with threshold selected")
+        logger.debug(f"Judging a trace where all MC steps are correct with threshold selected")
         # just need to check if {model_name}_isVerified is True for all models
             # if check is True, then return True
         return check_all_step_correct_consensus(mc_filtered_item, all_items_array, ['o4_mini_isVerified', 'gpt_4.1_mini_isVerified', 'gpt_4.1_nano_isVerified'])
 
     else: # check if first incorrect step is the same for verification traces; consensus for incorrect
-        print(f"DEBUG: Judging a trace where there is an incorrect step in the trace, first check if LLM judges agree there is an incorrect step, then check if the index of the first incorrect step is the same for MC and LLM judges")
+        logger.debug(f"Judging a trace where there is an incorrect step in the trace, first check if LLM judges agree there is an incorrect step, then check if the index of the first incorrect step is the same for MC and LLM judges")
         if is_llm_judges_consensus_for_incorrect(mc_filtered_item, all_items_array): # TODO: collect IDs here to count and check manually
             return is_index_of_first_incorrect_step_for_mc_and_llm_judges_consensus(mc_filtered_item, all_items_array)# TODO: collect IDs here to count and check manually
         else:
@@ -515,7 +541,7 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
 
 
 def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item: dict, model_to_identify_first_incorrect_step: str, consensus_filtering_algo_label: str) -> dict:
-    print(f"DEBUG: Converting raw item to model identified first incorrect step")
+    logger.debug(f"Converting raw item to model identified first incorrect step")
 
     id = raw_not_null_verification_rollout_item['rollout_uuid']
     image = raw_not_null_verification_rollout_item['rollout_image_path']
@@ -527,7 +553,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
     if model_to_identify_first_incorrect_step == 'o4_mini':
         verification_solution = raw_not_null_verification_rollout_item['o4_mini_verification_solution']
         verifier_identified_first_incorrect_step = parse_first_incorrect_step_from_verification(verification_solution) # returns (first_incorrect_section_name, first_incorrect_step_num)  # 0-based
-        print(f"DEBUG: o4-mini identified first incorrect step: {verifier_identified_first_incorrect_step}")
+        logger.debug(f"o4-mini identified first incorrect step: {verifier_identified_first_incorrect_step}")
     else:
         raise ValueError(f"ERROR: Model {model_to_identify_first_incorrect_step} not supported")
 
@@ -643,7 +669,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
 
 # TODO: this is tech debt, temp function until decide what to do with these labels
 def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: dict, model_to_identify_first_incorrect_step: str, consensus_filtering_algo_label: str) -> dict:
-    print(f"DEBUG: Converting raw item to model identified last correct step (placeholder for dealing with these type of rows for now)")
+    logger.debug(f"Converting raw item to model identified last correct step (placeholder for dealing with these type of rows for now)")
 
     id = raw_not_null_verification_rollout_item['rollout_uuid']
     image = raw_not_null_verification_rollout_item['rollout_image_path']
@@ -770,7 +796,7 @@ def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: di
 
 
 def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict, all_items_array: list[dict]) -> dict:
-    print(f"DEBUG: Running v2 consensus filtering algo on item: {raw_not_null_verification_rollout_item}")
+    logger.debug(f"Running v2 consensus filtering algo on item: {raw_not_null_verification_rollout_item}")
 
     # we first separate o4-mini correct and incorrect samples
     o4_mini_correct_items = [item for item in all_items_array if item['o4_mini_isVerified']]
@@ -782,32 +808,32 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
     
     # we then check if the raw_not_null_verification_rollout_item is in o4-mini correct items
     if not (raw_not_null_verification_rollout_item in o4_mini_correct_items or raw_not_null_verification_rollout_item in o4_mini_incorrect_items):
-        print(f"DEBUG: Raw item is not in o4-mini correct items or incorrect items")
+        logger.debug(f"Raw item is not in o4-mini correct items or incorrect items")
         raise ValueError(f"ERROR: Raw item is in o4-mini correct items or incorrect items")
     else:
-        print(f"DEBUG: Raw item is in o4-mini correct items or incorrect items, now let's check if MC agrees with o4-mini")
+        logger.debug(f"Raw item is in o4-mini correct items or incorrect items, now let's check if MC agrees with o4-mini")
 
     # Now we check if this raw_not_null_verification_rollout_item is in o4-mini_correct_items AND has the MC threshold score agrees with o4-mini
     if raw_not_null_verification_rollout_item in o4_mini_correct_items:
-        print(f"DEBUG: Passing Raw item through MC threshold filter first")
+        logger.debug(f"Passing Raw item through MC threshold filter first")
         # we then check if the MC threshold score agrees with o4-mini
         mc_filtered_item = item2conv_prm(raw_not_null_verification_rollout_item)
         if mc_filtered_item['first_incorrect_step'] is None:
-            print(f"DEBUG: MC threshold and o4-mini agree on all steps correct")
+            logger.debug(f"MC threshold and o4-mini agree on all steps correct")
             mc_filtered_item['consensus_filtering_algo_label'] = 'o4-mini_correct_and_MC_agrees'
             # this group is 4)** MC and o4-mini agree on all steps correct
-            print(f"DEBUG: returning mc_filtered_item with MC and o4-mini agree on all steps correct: {mc_filtered_item}")
+            logger.debug(f"returning mc_filtered_item with MC and o4-mini agree on all steps correct: {mc_filtered_item}")
             return mc_filtered_item
         else: # we assume o4-mini knows better than MC, identify first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter. mc["first_incorrect_step"] is not None (found an incorrect step), o4-mini says its correct though. We don't train on these samples.
-            print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct. o4-mini thinks it is all correct, but MC results in incorrect answers.")
+            logger.debug(f"MC threshold and o4-mini disagree on all steps correct. o4-mini thinks it is all correct, but MC results in incorrect answers.")
             # this group is 3)** MC and o4-mini disagree
-            print(f"DEBUG: returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')}")
+            logger.debug(f"returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')}")
             return raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')
 
     elif raw_not_null_verification_rollout_item in o4_mini_incorrect_items:
-        print(f"DEBUG: Raw item is in o4-mini incorrect items, processing item to first incorrect step identified by o4-mini")
+        logger.debug(f"Raw item is in o4-mini incorrect items, processing item to first incorrect step identified by o4-mini")
         # we assume o4-mini knowns better, do not care if it agrees with MC or not, just return the item with the first incorrect step identified by o4-mini. This group is 1)** o4-mini incorrect, and MC agrees 2)** o4-mini incorrect, and MC disagrees
-        print(f"DEBUG: returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')}")
+        logger.debug(f"returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')}")
         return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')
         
     # returns final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score', "consensus_filtering_algo_label" -> "o4-mini_incorrect_and_MC_agrees_and_disagrees", "o4-mini_correct_and_MC_agrees", "o4-mini_correct_and_MC_disagrees"], "verifier_identified_first_incorrect_step_solution")
@@ -885,11 +911,11 @@ def check_data_integrity_of_convsprm(convs_prm, filtered_items):
     label_counts = Counter(consensus_labels)
 
     # Print counts for each unique value
-    print("Consensus filtering algo label counts:")
+    logger.info("Consensus filtering algo label counts:")
     total_count = 0
     for label in expected_labels:
         count = label_counts[label]
-        print(f"  {label}: {count}")
+        logger.info(f"  {label}: {count}")
         total_count += count
 
     # Check that len(convs_prm) == len(filtered_items)
@@ -900,15 +926,15 @@ def check_data_integrity_of_convsprm(convs_prm, filtered_items):
     if total_count != len(filtered_items):
         raise ValueError(f"ERROR: Total label counts ({total_count}) != len(filtered_items) ({len(filtered_items)})")
 
-    print(f"SUCCESS: All validation checks in check_data_integrity_of_convsprm passed. Processed {len(filtered_items)} items with {len(unique_labels)} unique consensus labels.")
+    logger.info(f"SUCCESS: All validation checks in check_data_integrity_of_convsprm passed. Processed {len(filtered_items)} items with {len(unique_labels)} unique consensus labels.")
 
 
 def main():
-    # print all configs:
-    print(f'{args=}')
+    # log all configs:
+    logger.info(f'{args=}')
 
     if not os.path.exists(args.data_dir):
-        print(f'Dir does not exist: {args.data_dir}')
+        logger.error(f'Dir does not exist: {args.data_dir}')
         exit(0)
 
     for filename in os.listdir(args.data_dir): # TODO: remove later to run on all files
@@ -925,8 +951,8 @@ def main():
         # pairs_orm_save_path = os.path.join(save_dir, 'raw', f'{ds_name}_orm.jsonl')
 
         if os.path.exists(pairs_save_path) and not args.overwrite:
-            print(f'Debug File already exists: {pairs_save_path} or Train file path already exists: {final_trl_format_save_path}')
-            print(f'Skipping file: {filename}')
+            logger.info(f'Debug File already exists: {pairs_save_path} or Train file path already exists: {final_trl_format_save_path}')
+            logger.info(f'Skipping file: {filename}')
             continue
 
         info = defaultdict(int)
@@ -943,14 +969,14 @@ def main():
         filtered_items = []
         for item in items:
             if any(col not in item or item[col] is None for col in verification_columns):
-                print(f"DEBUG: Skipping item because it has None values in verification columns")
+                logger.debug(f"Skipping item because it has None values in verification columns")
                 continue
             filtered_items.append(item)
 
         # Core filtering logic comes here:
         for item in filtered_items:
             if args.consensus_filtering_algo_version == 'v1':
-                print(f'Running v1 consensus filtering algo')
+                logger.info(f'Running v1 consensus filtering algo on new item')
                 # First, we apply the MC threshold to the item and get the "first incorrect step" based on the threshold
                 mc_filtered_item = item2conv_prm(item)
                 # add a function to check if mc_filtered_item has first step incorrect. If so, then we can skip the item.
@@ -962,7 +988,7 @@ def main():
                     continue # track rows that failed the consensus filtering in another array that is saved for auditing
                 # TODO: collect IDs here to count and check manually
             elif args.consensus_filtering_algo_version == 'v2':
-                print(f'Running v2 consensus filtering algo')
+                logger.info(f'\nRunning v2 consensus filtering algo on new item')
                 mc_consensus_filtered_v2_item = mc_consensus_filtering_v2_algo(item, filtered_items) # expected output schema: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
 
                 convs_prm.append(mc_consensus_filtered_v2_item)
@@ -980,14 +1006,14 @@ def main():
 
         # Validate data integrity of convs_prm
         check_data_integrity_of_convsprm(convs_prm, filtered_items)
-        print(f"DEBUG: number of final_trl_format_items, should be equal to len(convs_prm) - len(o4-mini_correct_and_MC_disagrees): {len(final_trl_format_items)}")
+        logger.info(f"number of final_trl_format_items, should be equal to len(convs_prm) - len(o4-mini_correct_and_MC_disagrees): {len(final_trl_format_items)}")
 
-        print(f'[{filename}]')
+        logger.info(f'[{filename}]')
         for k, v in info.items():
-            print(k, v)
+            logger.info(f'{k}: {v}')
         for k, v in statistics.items():
-            print(f'{k}: max={max(v)}, min={min(v)}, mean={sum(v) / len(v)}, total={sum(v)}')
-        print()
+            logger.info(f'{k}: max={max(v)}, min={min(v)}, mean={sum(v) / len(v)}, total={sum(v)}')
+        logger.info('')
 
         save_outputs(convs_prm, pairs_save_path)
         save_outputs(final_trl_format_items, final_trl_format_save_path)
