@@ -527,6 +527,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
     if model_to_identify_first_incorrect_step == 'o4_mini':
         verification_solution = raw_not_null_verification_rollout_item['o4_mini_verification_solution']
         verifier_identified_first_incorrect_step = parse_first_incorrect_step_from_verification(verification_solution) # returns (first_incorrect_section_name, first_incorrect_step_num)  # 0-based
+        print(f"DEBUG: o4-mini identified first incorrect step: {verifier_identified_first_incorrect_step}")
     else:
         raise ValueError(f"ERROR: Model {model_to_identify_first_incorrect_step} not supported")
 
@@ -613,15 +614,11 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
             reasoning_step_count += 1
 
         # Once we find a negative step, all subsequent steps are negative
-        # if not found_negative and step['score'] <= threshold:
-        if not found_negative and verifier_identified_first_incorrect_step[0] == current_section and verifier_identified_first_incorrect_step[1] == step_idx:
+        # Need to normalize section names for comparison (remove brackets)
+        current_section_normalized = current_section.replace('[', '').replace(']', '') if current_section else ''
+        if not found_negative and ((current_section_normalized in ['Visual Elements', 'Perception'] and current_section_normalized == verifier_identified_first_incorrect_step[0] and (visual_elements_step_count - 1) == verifier_identified_first_incorrect_step[1]) or (current_section_normalized == 'Reasoning' and current_section_normalized == verifier_identified_first_incorrect_step[0] and (reasoning_step_count - 1) == verifier_identified_first_incorrect_step[1])): # because step_idx starts from 0
             found_negative = True
-            # # Record the first incorrect step
-            # if current_section in ['[Visual Elements]', '[Perception]']:
-            #     first_incorrect_step = ('Visual Elements', visual_elements_step_count - 1)  # Normalize to Visual Elements
-            # elif current_section == '[Reasoning]':
-            #     first_incorrect_step = ('Reasoning', reasoning_step_count - 1)
-        
+
         conversations.extend([
             {'from': 'human', 'value': step_solution},
             {'from': 'gpt', 'value': '-' if found_negative else '+'},
@@ -745,13 +742,10 @@ def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: di
 
         # Once we find a negative step, all subsequent steps are negative
         # if not found_negative and step['score'] <= threshold:
-        if not found_negative and verifier_identified_first_incorrect_step[0] == current_section and verifier_identified_first_incorrect_step[1] == step_idx:
+        # Need to normalize section names for comparison (remove brackets)
+        current_section_normalized = current_section.replace('[', '').replace(']', '') if current_section else ''
+        if not found_negative and ((current_section_normalized in ['Visual Elements', 'Perception'] and current_section_normalized == verifier_identified_first_incorrect_step[0] and (visual_elements_step_count - 1) == verifier_identified_first_incorrect_step[1]) or (current_section_normalized == 'Reasoning' and current_section_normalized == verifier_identified_first_incorrect_step[0] and (reasoning_step_count - 1) == verifier_identified_first_incorrect_step[1])):
             found_negative = True
-            # # Record the first incorrect step
-            # if current_section in ['[Visual Elements]', '[Perception]']:
-            #     first_incorrect_step = ('Visual Elements', visual_elements_step_count - 1)  # Normalize to Visual Elements
-            # elif current_section == '[Reasoning]':
-            #     first_incorrect_step = ('Reasoning', reasoning_step_count - 1)
         
         conversations.extend([
             {'from': 'human', 'value': step_solution},
