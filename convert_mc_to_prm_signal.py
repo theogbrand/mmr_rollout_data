@@ -64,7 +64,7 @@ def save_outputs(outputs, results_file):
 
     with open(results_file, 'w') as file:
         for output in outputs:
-            file.write(json.dumps(output) + '\n')
+            file.write(json.dumps(output, ensure_ascii=False) + '\n')
 
     logger.info(f'Results ({len(outputs)=}) saved to {results_file}')
 
@@ -389,7 +389,7 @@ def parse_first_incorrect_step_from_verification(verification_solution):
             step_num = int(analysis_match.group(1)) # note the step_num starts from 1 here so we need to subtract 1 to get the 0-based index
             analysis_blocks.append(("Reasoning", step_num))
     
-    if not analysis_blocks:
+    if not analysis_blocks: # happens when verification solution does not have the [Visual Elements] or [Reasoning] section but has a conclusion. we manually change their o4_mini_isVerified to None manually using edit_final_combined_MC_and_verification_files_manually.ipynb for now
         raise ValueError("ERROR: No analysis block found in verification_solution")
     
     # Return the last analysis block (first incorrect step)
@@ -446,43 +446,43 @@ def parse_first_correct_step_from_verification(verification_solution):
     if conclusion_text.lower() != "correct":
         raise ValueError(f"ERROR: Expected conclusion to be 'Correct' or 'correct', got: '{conclusion_text}'")
     
-    # Find all analysis blocks with their sections
-    analysis_blocks = []
+    # # Find all analysis blocks with their sections
+    # analysis_blocks = []
     
-    # Handle Visual Elements/Perception section
-    visual_pattern = r'\[(Visual Elements|Perception)\](.*?)(?=\[Reasoning\]|</conclusion>|$)'
-    for section_match in re.finditer(visual_pattern, verification_solution, re.DOTALL):
-        section_name = section_match.group(1)
-        section_content = section_match.group(2)
+    # # Handle Visual Elements/Perception section
+    # visual_pattern = r'\[(Visual Elements|Perception)\](.*?)(?=\[Reasoning\]|</conclusion>|$)'
+    # for section_match in re.finditer(visual_pattern, verification_solution, re.DOTALL):
+    #     section_name = section_match.group(1)
+    #     section_content = section_match.group(2)
         
-        # Find analysis blocks in this section
-        analysis_pattern = r'<analysis_(\d+)>.*?</analysis_\d+>'
-        for analysis_match in re.finditer(analysis_pattern, section_content, re.DOTALL):
-            step_num = int(analysis_match.group(1)) # note the step_num starts from 1 here so we need to subtract 1 to get the 0-based index
-            analysis_blocks.append((section_name, step_num))
+    #     # Find analysis blocks in this section
+    #     analysis_pattern = r'<analysis_(\d+)>.*?</analysis_\d+>'
+    #     for analysis_match in re.finditer(analysis_pattern, section_content, re.DOTALL):
+    #         step_num = int(analysis_match.group(1)) # note the step_num starts from 1 here so we need to subtract 1 to get the 0-based index
+    #         analysis_blocks.append((section_name, step_num))
     
-    # Handle Reasoning section
-    reasoning_pattern = r'\[Reasoning\](.*?)(?=</conclusion>|$)'
-    reasoning_match = re.search(reasoning_pattern, verification_solution, re.DOTALL)
-    if reasoning_match:
-        section_content = reasoning_match.group(1)
+    # # Handle Reasoning section
+    # reasoning_pattern = r'\[Reasoning\](.*?)(?=</conclusion>|$)'
+    # reasoning_match = re.search(reasoning_pattern, verification_solution, re.DOTALL)
+    # if reasoning_match:
+    #     section_content = reasoning_match.group(1)
         
-        # Find analysis blocks in reasoning section
-        analysis_pattern = r'<analysis_(\d+)>.*?</analysis_\d+>'
-        for analysis_match in re.finditer(analysis_pattern, section_content, re.DOTALL):
-            step_num = int(analysis_match.group(1)) # note the step_num starts from 1 here so we need to subtract 1 to get the 0-based index
-            analysis_blocks.append(("Reasoning", step_num))
+    #     # Find analysis blocks in reasoning section
+    #     analysis_pattern = r'<analysis_(\d+)>.*?</analysis_\d+>'
+    #     for analysis_match in re.finditer(analysis_pattern, section_content, re.DOTALL):
+    #         step_num = int(analysis_match.group(1)) # note the step_num starts from 1 here so we need to subtract 1 to get the 0-based index
+    #         analysis_blocks.append(("Reasoning", step_num))
     
-    if not analysis_blocks:
-        raise ValueError("ERROR: No analysis block found in verification_solution")
+    # if not analysis_blocks:
+    #     raise ValueError("ERROR: No analysis block found in verification_solution")
     
-    # Return the last analysis block (last correct step)
-    last_section, last_step_num = analysis_blocks[-1]
-    # Normalize Perception to Visual Elements for consistency
-    if last_section == 'Perception':
-        last_section = 'Visual Elements'
-    logger.debug(f"returning (last_section, last_step_num - 1): {(last_section, last_step_num - 1)}")
-    return (last_section, last_step_num - 1)  # Convert to 0-based
+    # # Return the last analysis block (last correct step)
+    # last_section, last_step_num = analysis_blocks[-1]
+    # # Normalize Perception to Visual Elements for consistency
+    # if last_section == 'Perception':
+    #     last_section = 'Visual Elements'
+    # logger.debug(f"returning (last_section, last_step_num - 1): {(last_section, last_step_num - 1)}")
+    return (None, None)  # Convert to 0-based
 
 
 def check_all_step_correct_consensus(mc_filtered_item: dict, all_items_array: list[dict], verification_columns: list[str]) -> bool:
@@ -669,7 +669,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
 
 # TODO: this is tech debt, temp function until decide what to do with these labels
 def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: dict, model_to_identify_first_incorrect_step: str, consensus_filtering_algo_label: str) -> dict:
-    logger.debug(f"Converting raw item to model identified last correct step (placeholder for dealing with these type of rows for now)")
+    logger.debug(f"Converting raw item to uniform output format (placeholder for dealing with these type of rows for now)")
 
     id = raw_not_null_verification_rollout_item['rollout_uuid']
     image = raw_not_null_verification_rollout_item['rollout_image_path']
@@ -826,15 +826,18 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
             return mc_filtered_item
         else: # we assume o4-mini knows better than MC, identify first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter. mc["first_incorrect_step"] is not None (found an incorrect step), o4-mini says its correct though. We don't train on these samples.
             logger.debug(f"MC threshold and o4-mini disagree on all steps correct. o4-mini thinks it is all correct, but MC results in incorrect answers.")
+            logger.debug(f"mc_filtered_item has first incorrect step: {mc_filtered_item['first_incorrect_step']} but o4-mini thinks this trace is all correct. We don't train on these samples.")
             # this group is 3)** MC and o4-mini disagree
-            logger.debug(f"returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')}")
-            return raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')
+            o4_mini_correct_and_MC_disagrees_item = raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')
+            logger.debug(f"returning raw_item_to_uniform_output_format for debugging and error analysis later: {o4_mini_correct_and_MC_disagrees_item}")
+            return o4_mini_correct_and_MC_disagrees_item
 
     elif raw_not_null_verification_rollout_item in o4_mini_incorrect_items:
         logger.debug(f"Raw item is in o4-mini incorrect items, processing item to first incorrect step identified by o4-mini")
         # we assume o4-mini knowns better, do not care if it agrees with MC or not, just return the item with the first incorrect step identified by o4-mini. This group is 1)** o4-mini incorrect, and MC agrees 2)** o4-mini incorrect, and MC disagrees
-        logger.debug(f"returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')}")
-        return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')
+        o4_mini_incorrect_and_MC_agrees_and_disagrees_item = raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')
+        logger.debug(f"returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {o4_mini_incorrect_and_MC_agrees_and_disagrees_item}")
+        return o4_mini_incorrect_and_MC_agrees_and_disagrees_item
         
     # returns final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score', "consensus_filtering_algo_label" -> "o4-mini_incorrect_and_MC_agrees_and_disagrees", "o4-mini_correct_and_MC_agrees", "o4-mini_correct_and_MC_disagrees"], "verifier_identified_first_incorrect_step_solution")
 
