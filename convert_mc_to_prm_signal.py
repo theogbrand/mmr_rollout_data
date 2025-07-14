@@ -645,7 +645,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
 
 
 # TODO: this is tech debt, temp function until decide what to do with these labels
-def raw_item_to_model_identified_last_correct_step(raw_not_null_verification_rollout_item: dict, model_to_identify_first_incorrect_step: str, consensus_filtering_algo_label: str) -> dict:
+def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: dict, model_to_identify_first_incorrect_step: str, consensus_filtering_algo_label: str) -> dict:
     print(f"DEBUG: Converting raw item to model identified last correct step (placeholder for dealing with these type of rows for now)")
 
     id = raw_not_null_verification_rollout_item['rollout_uuid']
@@ -768,7 +768,7 @@ def raw_item_to_model_identified_last_correct_step(raw_not_null_verification_rol
         'id': id,
         'image_url': image, # name follows process_vision_info qwen function requirement: https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py#L321
         'conversations': conversations,
-        'first_incorrect_step': None, # None if all steps are correct, otherwise (section, step_index)
+        'first_incorrect_step': None, # None cos we don't train on these samples
         'steps_with_score': steps_with_score,
         'consensus_filtering_algo_label': consensus_filtering_algo_label,
         'verifier_identified_first_incorrect_step_solution': verification_solution,
@@ -804,11 +804,11 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
             # this group is 4)** MC and o4-mini agree on all steps correct
             print(f"DEBUG: returning mc_filtered_item with MC and o4-mini agree on all steps correct: {mc_filtered_item}")
             return mc_filtered_item
-        else: # we assume o4-mini knows better than MC, identify first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter 
+        else: # we assume o4-mini knows better than MC, identify first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter. mc["first_incorrect_step"] is not None (found an incorrect step), o4-mini says its correct though. We don't train on these samples.
             print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct. o4-mini thinks it is all correct, but MC results in incorrect answers.")
             # this group is 3)** MC and o4-mini disagree
-            print(f"DEBUG: returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_model_identified_last_correct_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')}")
-            return raw_item_to_model_identified_last_correct_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')
+            print(f"DEBUG: returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')}")
+            return raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')
 
     elif raw_not_null_verification_rollout_item in o4_mini_incorrect_items:
         print(f"DEBUG: Raw item is in o4-mini incorrect items, processing item to first incorrect step identified by o4-mini")
