@@ -1061,3 +1061,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main()
+    # usage: python convert_mc_to_prm_signal.py 
+    # all default values should work

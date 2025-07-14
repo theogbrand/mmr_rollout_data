@@ -13,8 +13,8 @@ def find_problematic_uuids(data):
             verification_solution = item.get('o4_mini_verification_solution', '')
             
             # Check if verification_solution contains required section headers
-            has_visual_or_perception = ('[Visual Elements]' in verification_solution or 
-                                      '[Perception]' in verification_solution)
+            has_visual_or_perception = (verification_solution.startswith('[Visual Elements]') or 
+                                      verification_solution.startswith('[Perception]'))
             
             # If missing required sections, record it
             if not has_visual_or_perception:
