@@ -787,11 +787,11 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
         raise ValueError(f"ERROR: Total number of items is not the sum of correct and incorrect items")
     
     # we then check if the raw_not_null_verification_rollout_item is in o4-mini correct items
-    if raw_not_null_verification_rollout_item not in o4_mini_correct_items:
-        print(f"DEBUG: Raw item is not in o4-mini correct items")
-        raise ValueError(f"ERROR: Raw item is not in o4-mini correct items")
+    if not (raw_not_null_verification_rollout_item in o4_mini_correct_items or raw_not_null_verification_rollout_item in o4_mini_incorrect_items):
+        print(f"DEBUG: Raw item is not in o4-mini correct items or incorrect items")
+        raise ValueError(f"ERROR: Raw item is in o4-mini correct items or incorrect items")
     else:
-        print(f"DEBUG: Raw item is in o4-mini correct items, now let's check if MC agrees with o4-mini")
+        print(f"DEBUG: Raw item is in o4-mini correct items or incorrect items, now let's check if MC agrees with o4-mini")
 
     # Now we check if this raw_not_null_verification_rollout_item is in o4-mini_correct_items AND has the MC threshold score agrees with o4-mini
     if raw_not_null_verification_rollout_item in o4_mini_correct_items:
@@ -808,12 +808,13 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
             print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct. o4-mini thinks it is all correct, but MC results in incorrect answers.")
             # this group is 3)** MC and o4-mini disagree
             print(f"DEBUG: returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_model_identified_last_correct_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')}")
-            exit()
-            return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')
+            return raw_item_to_model_identified_last_correct_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')
 
-    if raw_not_null_verification_rollout_item in o4_mini_incorrect_items:
+    elif raw_not_null_verification_rollout_item in o4_mini_incorrect_items:
         print(f"DEBUG: Raw item is in o4-mini incorrect items, processing item to first incorrect step identified by o4-mini")
         # we assume o4-mini knowns better, do not care if it agrees with MC or not, just return the item with the first incorrect step identified by o4-mini. This group is 1)** o4-mini incorrect, and MC agrees 2)** o4-mini incorrect, and MC disagrees
+        print(f"DEBUG: returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')}")
+        exit()
         return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')
         
     # return format: # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score', "consensus_filtering_algo_label" -> "o4-mini_incorrect_and_MC_agrees_and_disagrees", "o4-mini_correct_and_MC_agrees", "o4-mini_correct_and_MC_disagrees"], "verifier_identified_first_incorrect_step_solution")
