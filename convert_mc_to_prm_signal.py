@@ -430,9 +430,121 @@ def is_LLM_judge_consensus_filtering(mc_filtered_item, all_items_array):
             return False
 
 
-def raw_item_to_model_identified_first_incorrect_step(raw_none_null_verification_rollout_item: dict, all_items_array: list[dict], model_name: str) -> dict:
+def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item: dict, all_items_array: list[dict], model_to_identify_first_incorrect_step: str, consensus_filtering_algo_label: str) -> dict:
     print(f"DEBUG: Converting raw item to model identified first incorrect step")
-    return None
+
+    id = item['rollout_uuid']
+    image = item['rollout_image_path']
+    question = item['rollout_question']
+    full_rollout_response = item['rollout_response']
+    steps_with_score = item['rollout_steps_with_score']
+
+    threshold = args.mc_threshold
+    conversations = [{'from': 'system', 'value': PRM_SYSTEM_PROMPT}]
+    found_negative = False
+    first_incorrect_step = None
+    
+    # Find section boundaries
+    visual_elements_match = re.search(r'\[(?:Visual Elements|Perception)\](.*?)\[Reasoning\]', full_rollout_response, re.DOTALL)
+    reasoning_match = re.search(r'\[Reasoning\](.*?)(?:<correct_answer>|$)', full_rollout_response, re.DOTALL)
+    
+    # Extract steps from each section with XML tags preserved
+    visual_steps = []
+    reasoning_steps = []
+    
+    if visual_elements_match:
+        visual_content = visual_elements_match.group(1)
+        visual_step_matches = re.findall(r'(<step_\d+>.*?</step_\d+>)', visual_content, re.DOTALL)
+        visual_steps = [step.strip() for step in visual_step_matches]
+    
+    if reasoning_match:
+        reasoning_content = reasoning_match.group(1)
+        reasoning_step_matches = re.findall(r'(<step_\d+>.*?</step_\d+>)', reasoning_content, re.DOTALL)
+        reasoning_steps = [step.strip() for step in reasoning_step_matches]
+    
+    # Determine the actual first section name from the rollout response
+    first_section_name = '[Visual Elements]'  # default
+    if re.search(r'\[Perception\]', full_rollout_response):
+        first_section_name = '[Perception]'
+    
+    # Create a mapping of step content (without XML tags) to full XML step and section
+    step_to_section_and_xml = {}
+    for xml_step in visual_steps:
+        # Extract content without XML tags for matching
+        content_match = re.search(r'<step_\d+>(.*?)</step_\d+>', xml_step, re.DOTALL)
+        if content_match:
+            content = content_match.group(1).strip()
+            step_to_section_and_xml[content] = (xml_step, first_section_name)
+    
+    for xml_step in reasoning_steps:
+        # Extract content without XML tags for matching
+        content_match = re.search(r'<step_\d+>(.*?)</step_\d+>', xml_step, re.DOTALL)
+        if content_match:
+            content = content_match.group(1).strip()
+            step_to_section_and_xml[content] = (xml_step, '[Reasoning]')
+    
+    # Process each scored step
+    current_section = None
+    visual_elements_step_count = 0
+    reasoning_step_count = 0
+    
+    for step_idx, step in enumerate(steps_with_score):
+        step_solution = step['step'].strip()
+        
+        if step_idx == 0:
+            # First step includes the question and solution process header with Visual Elements section
+            if step_solution in step_to_section_and_xml:
+                xml_step, section = step_to_section_and_xml[step_solution]
+                step_solution = f'### Question:\n{question}\n\n### Solution Process:\n[Visual Elements]\n{xml_step}'
+                current_section = section
+            else:
+                raise ValueError(f"Step solution not found in step_to_section_and_xml: {step_solution}")
+        else:
+            # Check if this step has XML tags and section info
+            if step_solution in step_to_section_and_xml:
+                xml_step, section = step_to_section_and_xml[step_solution]
+                if section != current_section:
+                    # Prepend section header to the XML step
+                    step_solution = f'{section}\n{xml_step}'
+                    current_section = section
+                else:
+                    # Use XML step without section header
+                    step_solution = xml_step
+        
+        # Update step counters based on current section
+        if current_section in ['[Visual Elements]', '[Perception]']:
+            visual_elements_step_count += 1
+        elif current_section == '[Reasoning]':
+            reasoning_step_count += 1
+
+        # Once we find a negative step, all subsequent steps are negative
+        if not found_negative and step['score'] <= threshold:
+            found_negative = True
+            # Record the first incorrect step
+            if current_section in ['[Visual Elements]', '[Perception]']:
+                first_incorrect_step = ('Visual Elements', visual_elements_step_count - 1)  # Normalize to Visual Elements
+            elif current_section == '[Reasoning]':
+                first_incorrect_step = ('Reasoning', reasoning_step_count - 1)
+        
+        conversations.extend([
+            {'from': 'human', 'value': step_solution},
+            {'from': 'gpt', 'value': '-' if found_negative else '+'},
+        ])
+
+        # Early stop after processing the first negative step
+        # if first step negative, then conversation only has 1 human-gpt value
+        # for socres [0.8, 0.7, 0.6, -0.1, 0.5] and threshold 0.0, step 4 is the final step in the conversation
+        if args.early_stop and step['score'] <= threshold:
+            break
+
+    return {
+        'id': id,
+        'image_url': image, # name follows process_vision_info qwen function requirement: https://github.com/QwenLM/Qwen2.5-VL/blob/main/qwen-vl-utils/src/qwen_vl_utils/vision_process.py#L321
+        'conversations': conversations,
+        'first_incorrect_step': first_incorrect_step, # None if all steps are correct, otherwise (section, step_index)
+        'steps_with_score': steps_with_score,
+        'consensus_filtering_algo_label': consensus_filtering_algo_label,
+    } # return format: # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score', "consensus_filtering_algo_label" -> "o4-mini_incorrect_and_MC_agrees_and_disagrees", "o4-mini_correct_and_MC_agrees", "o4-mini_correct_and_MC_disagrees"])
 
 
 def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict, all_items_array: list[dict]) -> dict:
@@ -460,17 +572,18 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
         mc_filtered_item = item2conv_prm(raw_not_null_verification_rollout_item)
         if mc_filtered_item['first_incorrect_step'] is None:
             print(f"DEBUG: MC threshold and o4-mini agree on all steps correct")
+            mc_filtered_item['consensus_filtering_algo_label'] = 'o4-mini_correct_and_MC_agrees'
             # this group is 4)** MC and o4-mini agree on all steps correct
             return mc_filtered_item
         else: # we assume o4-mini knows better than MC, identify first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter 
             print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct.")
             # this group is 3)** MC and o4-mini disagree
-            return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, all_items_array, 'o4_mini')
+            return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, all_items_array, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')
 
     if raw_not_null_verification_rollout_item in o4_mini_incorrect_items:
         print(f"DEBUG: Raw item is in o4-mini incorrect items, processing item to first incorrect step identified by o4-mini")
         # we assume o4-mini knowns better, do not care if it agrees with MC or not, just return the item with the first incorrect step identified by o4-mini. This group is 1)** o4-mini incorrect, and MC agrees 2)** o4-mini incorrect, and MC disagrees
-        return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, all_items_array, 'o4_mini')
+        return raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_rollout_item, all_items_array, 'o4_mini', 'o4-mini_incorrect_and_MC_agrees_and_disagrees')
         
     # return format: # final_mc_prm_data input df columns: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score', "consensus_filtering_algo_label" -> "o4-mini_incorrect_and_MC_agrees_and_disagrees", "o4-mini_correct_and_MC_agrees", "o4-mini_correct_and_MC_disagrees"])
 
