@@ -646,7 +646,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
 
 # TODO: this is tech debt, temp function until decide what to do with these labels
 def raw_item_to_model_identified_last_correct_step(raw_not_null_verification_rollout_item: dict, model_to_identify_first_incorrect_step: str, consensus_filtering_algo_label: str) -> dict:
-    print(f"DEBUG: Converting raw item to model identified first incorrect step")
+    print(f"DEBUG: Converting raw item to model identified last correct step (placeholder for dealing with these type of rows for now)")
 
     id = raw_not_null_verification_rollout_item['rollout_uuid']
     image = raw_not_null_verification_rollout_item['rollout_image_path']
@@ -805,7 +805,7 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
             print(f"DEBUG: returning mc_filtered_item with MC and o4-mini agree on all steps correct: {mc_filtered_item}")
             return mc_filtered_item
         else: # we assume o4-mini knows better than MC, identify first incorrect step based on o4-mini and output it in the same share_gpt format style mc_filtered_item before goes into final TRL filter 
-            print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct.")
+            print(f"DEBUG: MC threshold and o4-mini disagree on all steps correct. o4-mini thinks it is all correct, but MC results in incorrect answers.")
             # this group is 3)** MC and o4-mini disagree
             print(f"DEBUG: returning raw_item_to_model_identified_first_incorrect_step with o4-mini identified first incorrect step: {raw_item_to_model_identified_last_correct_step(raw_not_null_verification_rollout_item, 'o4_mini', 'o4-mini_correct_and_MC_disagrees')}")
             exit()
