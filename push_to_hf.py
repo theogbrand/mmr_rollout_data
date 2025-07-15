@@ -75,8 +75,6 @@ for i in range(min(3, len(dataset))):
     img = dataset[i]['images'][0]
     print(f"Sample {i}: {type(img)}")
 
-# Convert to HuggingFace Dataset
-dataset = Dataset.from_list(dataset)
 
 # Push to HuggingFace
 username = "ob11"
