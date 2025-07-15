@@ -5,6 +5,7 @@ from datetime import datetime
 from argparse import ArgumentParser
 from collections import defaultdict
 import re
+from tqdm import tqdm
 
 from constants_and_prompts import PRM_SYSTEM_PROMPT
 
@@ -842,6 +843,7 @@ def mc_consensus_filtering_v2_algo(raw_not_null_verification_rollout_item: dict,
         if mc_filtered_item['first_incorrect_step'] is None:
             logger.debug(f"MC threshold and o4-mini agree on all steps correct")
             mc_filtered_item['consensus_filtering_algo_label'] = 'o4-mini_correct_and_MC_agrees'
+            mc_filtered_item['verifier_identified_first_incorrect_step_solution'] = None
             # this group is 4)** MC and o4-mini agree on all steps correct
             logger.debug(f"returning mc_filtered_item with MC and o4-mini agree on all steps correct: {mc_filtered_item}")
             return mc_filtered_item
@@ -965,10 +967,18 @@ def main():
         logger.error(f'Dir does not exist: {args.data_dir}')
         exit(0)
 
-    for filename in os.listdir(args.data_dir): # TODO: remove later to run on all files
-        if not filename.endswith('.jsonl'):
-            continue
-
+    # Get list of files to process
+    # files_to_process = [f for f in os.listdir(args.data_dir) if f.endswith('.jsonl')]
+    files_to_process = [
+        # 'vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        # 'InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        # 'CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        # 'RAVEN_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        'dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        'AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl'
+    ]
+    
+    for filename in tqdm(files_to_process, desc="Processing files", unit="file"):
         save_dir = args.save_dir
         ds_name = os.path.basename(filename).replace('.jsonl', '')
         os.makedirs(os.path.join(save_dir, 'train'), exist_ok=True)
@@ -1002,9 +1012,13 @@ def main():
             filtered_items.append(item)
 
         # Core filtering logic comes here:
-        for item in filtered_items:
+        processed_count = 0
+        skipped_count = 0
+        
+        progress_bar = tqdm(filtered_items, desc=f"Processing {ds_name}", unit="sample", leave=False)
+        for item in progress_bar:
             if args.consensus_filtering_algo_version == 'v1':
-                logger.info(f'Running v1 consensus filtering algo on new item')
+                logger.debug(f'Running v1 consensus filtering algo on new item')
                 # First, we apply the MC threshold to the item and get the "first incorrect step" based on the threshold
                 mc_filtered_item = item2conv_prm(item)
                 # add a function to check if mc_filtered_item has first step incorrect. If so, then we can skip the item.
@@ -1012,32 +1026,49 @@ def main():
                     convs_prm.append(mc_filtered_item)
                     final_filtered_item = final_filter_and_processing_before_training(mc_filtered_item)
                     final_trl_format_items.append(final_filtered_item)
+                    processed_count += 1
                 else:
+                    skipped_count += 1
                     continue # track rows that failed the consensus filtering in another array that is saved for auditing
                 # TODO: collect IDs here to count and check manually
             elif args.consensus_filtering_algo_version == 'v2':
-                logger.info(f'\nRunning v2 consensus filtering algo on new item')
+                logger.debug(f'Running v2 consensus filtering algo on new item')
                 mc_consensus_filtered_v2_item = mc_consensus_filtering_v2_algo(item, filtered_items) # expected output schema: (['id', 'image_url', 'conversations', 'first_incorrect_step', 'steps_with_score'])
 
                 convs_prm.append(mc_consensus_filtered_v2_item)
 
                 if mc_consensus_filtered_v2_item is not None and mc_consensus_filtered_v2_item['consensus_filtering_algo_label'] != "o4-mini_correct_and_MC_disagrees":
-
                     final_filtered_item = final_filter_and_processing_before_training(mc_consensus_filtered_v2_item)
-
                     final_trl_format_items.append(final_filtered_item)
+                    processed_count += 1
+                else:
+                    skipped_count += 1
             else:
                 logger.error(f"ERROR: Invalid consensus filtering algo version: {args.consensus_filtering_algo_version}")
                 raise ValueError(f"ERROR: Invalid consensus filtering algo version: {args.consensus_filtering_algo_version}")
  
             
             statistics['num_turns'].append(len(convs_prm[-1]['conversations']))
+            
+            # Update progress bar with current stats
+            progress_bar.set_postfix({
+                'processed': processed_count,
+                'skipped': skipped_count,
+                'total_output': len(final_trl_format_items)
+            })
 
         # Validate data integrity of convs_prm
         check_data_integrity_of_convsprm(convs_prm, filtered_items)
-        logger.info(f"number of final_trl_format_items, should be equal to len(convs_prm) - len(o4-mini_correct_and_MC_disagrees): {len(final_trl_format_items)}")
-
-        logger.info(f'[{filename}]')
+        
+        # Log final processing statistics
+        logger.info(f'[{filename}] Processing Summary:')
+        logger.info(f'  Total items loaded: {len(items)}')
+        logger.info(f'  Items after None filtering: {len(filtered_items)}')
+        logger.info(f'  Items processed successfully: {processed_count}')
+        logger.info(f'  Items skipped: {skipped_count}')
+        logger.info(f'  Final training items: {len(final_trl_format_items)}')
+        logger.info(f'  Debug items (convs_prm): {len(convs_prm)}')
+        
         for k, v in info.items():
             logger.info(f'{k}: {v}')
         for k, v in statistics.items():
@@ -1051,7 +1082,7 @@ def main():
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated') # ran InfoVQA and AI2D on the base final_combined_MC_and_verification_files without updating the o4_mini_isVerified from False to None for verification_solutions that are missing Section Headers
+    parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated_rollouts') # ran InfoVQA and AI2D on the base final_combined_MC_and_verification_files without updating the o4_mini_isVerified from False to None for verification_solutions that are missing Section Headers
     parser.add_argument('--save-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/prm_training_data')
     parser.add_argument('--mc-threshold', type=float, default=0.8) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error. (0.8 comes from GenPRM recommendation for math reasoning)
     parser.add_argument('--early-stop', action='store_true', default=True)

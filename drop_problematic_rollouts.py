@@ -130,14 +130,14 @@ def main():
     
     dataset_files = [
         # TODO: redo drop and update steps in #4, then convert to prm again
-        "InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        "vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        "CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        # "InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        # "vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        # "CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl",
 
         # TODO: in progress of converting to final state from source final_combined_MC_and_verification_files_updated_rollouts after drop and update steps in #4 completed
         # "RAVEN_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        # "dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        # "AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl"
+        "dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        "AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl"
     ]
     
     # Process each file

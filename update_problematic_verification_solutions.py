@@ -105,12 +105,12 @@ def main():
     data_dir = "/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated"
     
     dataset_files = [
-        "InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        "vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        "CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        # "InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        # "vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        # "CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl",
         # "RAVEN_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        # "dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        # "AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl"
+        "dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        "AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl"
     ]
     
     # Process each file
