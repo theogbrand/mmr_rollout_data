@@ -2,6 +2,14 @@ from datasets import Dataset, DatasetDict
 import json
 import os
 from PIL import Image
+from dotenv import load_dotenv
+
+load_dotenv()
+
+if os.getenv("HF_TOKEN") is None:
+    raise Exception("HF_TOKEN is not set")
+else:
+    print("HF_TOKEN is set: ", os.getenv("HF_TOKEN")[:5] + "...")
 
 # Load your JSONL file
 file_path = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data_full_v0/final_flattened_trl_format_prm_training_data_500k_mc0.8_v1.jsonl"
@@ -14,16 +22,10 @@ with open(file_path, 'r') as f:
 
 print(f"Loaded {len(data)} samples")
 
-# def s3_url_to_local_path(s3_url, local_base_dir="/mnt/fast10/brandon/mmr_rollout_data/ai2d_images"):
-def s3_url_to_local_path(s3_url, local_base_dir="/mnt/fast10/brandon/mmr_rollout_data/training_data_images"):
+def s3_url_to_local_path(s3_url):
     """Convert S3 URL to local file path"""
-    # Extract filename from S3 URL
-    # s3://arf-share/arf-ob1-mm-reasoning/training_data_images/AI2D/subset_images/706.png
-    # -> /tmp/ai2d_images/AI2D/706.png
     cwd_abs_path = os.path.abspath(os.getcwd())
     local_path = s3_url.replace("s3://arf-share/arf-ob1-mm-reasoning/", cwd_abs_path + "/")
-    # path_parts = local_path.split('/')
-    # filename = '/'.join(path_parts[-4:])  # Get last two parts: AI2D/706.png
     return local_path
     
 def process_example_local(example):
