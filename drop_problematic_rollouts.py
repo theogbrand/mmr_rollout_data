@@ -109,12 +109,13 @@ def drop_problematic_rollouts(data, problematic_uuids):
         if rollout_uuid in problematic_uuids:
             # Verify uniqueness before dropping
             
+            #TODO: Already checked for RAVEN. take long time so run separately and skip. Verify uniqueness before updating
             if not check_uuid_uniqueness(data, rollout_uuid):
                 print(f"ERROR: UUID {rollout_uuid} appears multiple times in data - skipping drop")
                 raise ValueError(f"ERROR: UUID {rollout_uuid} appears multiple times in data - skipping drop")
 
             print(f"Dropping rollout_uuid: {rollout_uuid}")
-            print(f"item['steps_with_score']: {item['steps_with_score']}")
+            print(f"item['rollout_steps_with_score']: {item['rollout_steps_with_score']}")
             print(f"item['rollout_response']: {item['rollout_response']}")
             dropped_count += 1
         else:
@@ -125,15 +126,18 @@ def drop_problematic_rollouts(data, problematic_uuids):
 
 def main():
     # Directory path
-    data_dir = "/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated_rollouts"
+    data_dir = "/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated_rollouts" # previously ran on _updated_rollouts which was a copy of the last 3 JSONL files that the "update verification value" was ran from
     
     dataset_files = [
-        # "InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        # "vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        # "CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        "RAVEN_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        "dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl",
-        "AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl"
+        # TODO: redo drop and update steps in #4, then convert to prm again
+        "InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        "vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        "CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+
+        # TODO: in progress of converting to final state from source final_combined_MC_and_verification_files_updated_rollouts after drop and update steps in #4 completed
+        # "RAVEN_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        # "dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        # "AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl"
     ]
     
     # Process each file
@@ -160,6 +164,7 @@ def main():
             
             # Check uniqueness for all problematic UUIDs
             all_unique = True
+            # print(f"Skipping check_uuid_uniqueness (checked)")
             print(f"starting check_uuid_uniqueness")
             for uuid in tqdm(problematic_uuids, desc="Checking UUID uniqueness"):
                 if not check_uuid_uniqueness(data, uuid):
