@@ -12,12 +12,57 @@ def find_problematic_uuids(data):
             rollout_uuid = item.get('rollout_uuid')
             verification_solution = item.get('o4_mini_verification_solution', '')
             
+            is_problematic = False
+            
             # Check if verification_solution contains required section headers
             has_visual_or_perception = (verification_solution.startswith('[Visual Elements]') or 
                                       verification_solution.startswith('[Perception]'))
             
-            # If missing required sections, record it
+            # If missing required sections, mark as problematic
             if not has_visual_or_perception:
+                is_problematic = True
+            else:
+                # Additional checks for proper format that parse_first_incorrect_step_from_verification expects
+                
+                # Check for conclusion tag
+                conclusion_pattern = r'<conclusion>(.*?)</conclusion>'
+                conclusion_match = re.search(conclusion_pattern, verification_solution, re.DOTALL)
+                if not conclusion_match:
+                    is_problematic = True
+                
+                # Check for valid analysis blocks within the expected sections
+                if not is_problematic:
+                    analysis_blocks = []
+                    
+                    # Handle Visual Elements/Perception section
+                    visual_pattern = r'\[(Visual Elements|Perception)\](.*?)(?=\[Reasoning\]|</conclusion>|$)'
+                    for section_match in re.finditer(visual_pattern, verification_solution, re.DOTALL):
+                        section_content = section_match.group(2)
+                        
+                        # Find analysis blocks in this section
+                        analysis_pattern = r'<analysis_(\d+)>.*?</analysis_\d+>'
+                        for analysis_match in re.finditer(analysis_pattern, section_content, re.DOTALL):
+                            step_num = int(analysis_match.group(1))
+                            analysis_blocks.append(step_num)
+                    
+                    # Handle Reasoning section
+                    reasoning_pattern = r'\[Reasoning\](.*?)(?=</conclusion>|$)'
+                    reasoning_match = re.search(reasoning_pattern, verification_solution, re.DOTALL)
+                    if reasoning_match:
+                        section_content = reasoning_match.group(1)
+                        
+                        # Find analysis blocks in reasoning section
+                        analysis_pattern = r'<analysis_(\d+)>.*?</analysis_\d+>'
+                        for analysis_match in re.finditer(analysis_pattern, section_content, re.DOTALL):
+                            step_num = int(analysis_match.group(1))
+                            analysis_blocks.append(step_num)
+                    
+                    # If no analysis blocks found, it's problematic
+                    if not analysis_blocks:
+                        is_problematic = True
+            
+            # Add to problematic list if problematic and not already there
+            if is_problematic and rollout_uuid not in problematic_uuids:
                 problematic_uuids.append(rollout_uuid)
     
     return problematic_uuids
@@ -45,6 +90,9 @@ def update_problematic_items(data, problematic_uuids):
                 raise ValueError(f"ERROR: UUID {rollout_uuid} has o4_mini_isVerified not False - stopping update")
                 continue
             
+            print(f"Updating rollout_uuid: {rollout_uuid}")
+            print(f"item: {item}")
+            print(f"item['o4_mini_isVerified']: {item['o4_mini_isVerified']}")
             # Update the value
             item['o4_mini_isVerified'] = None
             updated_count += 1
@@ -54,9 +102,11 @@ def update_problematic_items(data, problematic_uuids):
 
 def main():
     # Directory path
-    data_dir = "/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated"
+    data_dir = "/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files"
     
     dataset_files = [
+        "InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl",
+        "vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl",
         "CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl",
         "RAVEN_final_mc_rollouts_with_all_models_verification_merged.jsonl",
         "dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl",
@@ -100,9 +150,9 @@ def main():
                 updated_count = update_problematic_items(data, problematic_uuids)
                 
                 # Save the updated data back to the file
-                with open(filepath, 'w') as f:
-                    for item in data:
-                        f.write(json.dumps(item, ensure_ascii=False) + '\n')
+                # with open(filepath, 'w') as f:
+                #     for item in data:
+                #         f.write(json.dumps(item, ensure_ascii=False) + '\n')
                 
                 print(f"Successfully updated {updated_count} items in {filename}")
             else:
