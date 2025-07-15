@@ -33,5 +33,8 @@
         - run ```pyton merge_rollout_and_verification_files.py test``` to test the merge function on ONE dataset of prompts first (AI2D).
         - to complete and test the multi dataset version
 
-4. Goal: Finalize data labeling algorithm (Correct: MC+o4-mini agree, where MC Threshold > 0 considered correct step, and o4-mini agrees trace is all correct; Incorrect: o4-mini first incorrect step ONLY)
+4. Use ```update_problematic_verification_solutions.py``` to update the verification solutions for problematic rollouts, usually when the o4_mini_isVerified field is False but the verification_solution does not output the expected strict XML format for us to parse the first incorrect step properly
+    - run first without saving and refer to ```edit_final_combined_MC_and_verification_files_manually.ipynb``` to trace and verify the updated solutions
+
+5. Goal: Finalize data labeling algorithm (Correct: MC+o4-mini agree, where MC Threshold > 0 considered correct step, and o4-mini agrees trace is all correct; Incorrect: o4-mini first incorrect step ONLY)
     - We use ```convert_mc_to_prm_signal.py``` which takes in a threshold value, converts stepwise scores into "+/-" PRM signal, and filters out rollouts with consensus between the three model verification results
