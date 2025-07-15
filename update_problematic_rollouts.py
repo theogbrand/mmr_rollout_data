@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from tqdm import tqdm
 
 def validate_rollout_response(rollout_response):
     """
@@ -79,7 +80,7 @@ def find_problematic_uuids(data):
     """Find problematic rollout_uuids based on rollout_response format validation"""
     problematic_uuids = []
     
-    for item in data:
+    for item in tqdm(data, desc="Validating rollouts"):
         rollout_uuid = item.get('rollout_uuid')
         rollout_response = item.get('rollout_response', '')
         
@@ -103,25 +104,28 @@ def drop_problematic_rollouts(data, problematic_uuids):
     filtered_data = []
     dropped_count = 0
     
-    for item in data:
+    for item in tqdm(data, desc="Dropping problematic rollouts"):
         rollout_uuid = item.get('rollout_uuid')
         if rollout_uuid in problematic_uuids:
             # Verify uniqueness before dropping
+            
             if not check_uuid_uniqueness(data, rollout_uuid):
                 print(f"ERROR: UUID {rollout_uuid} appears multiple times in data - skipping drop")
                 raise ValueError(f"ERROR: UUID {rollout_uuid} appears multiple times in data - skipping drop")
-            
+
             print(f"Dropping rollout_uuid: {rollout_uuid}")
+            print(f"item['steps_with_score']: {item['steps_with_score']}")
+            print(f"item['rollout_response']: {item['rollout_response']}")
             dropped_count += 1
         else:
             filtered_data.append(item)
-    
+ 
     print(f"Dropped {dropped_count} problematic rollouts out of {original_count} total")
     return filtered_data, dropped_count
 
 def main():
     # Directory path
-    data_dir = "/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files"
+    data_dir = "/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated_rollouts"
     
     dataset_files = [
         # "InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl",
@@ -156,11 +160,11 @@ def main():
             
             # Check uniqueness for all problematic UUIDs
             all_unique = True
-            for uuid in problematic_uuids:
+            print(f"starting check_uuid_uniqueness")
+            for uuid in tqdm(problematic_uuids, desc="Checking UUID uniqueness"):
                 if not check_uuid_uniqueness(data, uuid):
                     print(f"ERROR: UUID {uuid} is not unique in the data")
                     raise ValueError(f"ERROR: UUID {uuid} is not unique in the data")
-                    all_unique = False
             
             if all_unique:
                 print("All problematic UUIDs are unique. Proceeding with drops...")
@@ -169,9 +173,9 @@ def main():
                 filtered_data, dropped_count = drop_problematic_rollouts(data, problematic_uuids)
                 
                 # Save the cleaned data back to the file
-                # with open(filepath, 'w') as f:
-                #     for item in filtered_data:
-                #         f.write(json.dumps(item, ensure_ascii=False) + '\n')
+                with open(filepath, 'w') as f:
+                    for item in filtered_data:
+                        f.write(json.dumps(item, ensure_ascii=False) + '\n')
                 
                 print(f"Successfully dropped {dropped_count} problematic rollouts from {filename}")
                 print(f"Remaining items: {len(filtered_data)}")
