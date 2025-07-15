@@ -1,4 +1,4 @@
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, Features, Value, Image as HFImage, Sequence
 import json
 import os
 from PIL import Image
@@ -29,14 +29,17 @@ def s3_url_to_local_path(s3_url):
     return local_path
     
 def process_example_local(example):
-    """Load images from local files"""
+    """Load images from local files and convert to RGB mode"""
     pil_images = []
     for s3_url in example['images']:
         local_path = s3_url_to_local_path(s3_url)
         try:
             if os.path.exists(local_path):
                 pil_image = Image.open(local_path)
-                pil_images.append(pil_image)  # Actually append the loaded image!
+                # Convert to RGB mode to standardize all images
+                # This handles PNG with alpha channels, grayscale, etc.
+                pil_image_rgb = pil_image.convert("RGB")
+                pil_images.append(pil_image_rgb)
             else:
                 raise Exception(f"Warning: Local file not found: {local_path}")
         except Exception as e:
