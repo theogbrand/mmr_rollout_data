@@ -12,7 +12,7 @@ else:
     print("HF_TOKEN is set: ", os.getenv("HF_TOKEN")[:5] + "...")
 
 # Load your JSONL file
-file_path = "/mnt/fast10/brandon/mmr_rollout_data/cache/"
+file_path = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data_full_v1/mc0.0/"
 # file_path = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data_full_v0/final_flattened_trl_format_prm_training_data_500k_mc0.8_v1.jsonl"
 # file_path = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data/train/AI2D_final_mc_rollouts_with_all_models_verification_merged_prm_training_data_final_trl_format_mc0.0.jsonl"
 
@@ -86,7 +86,7 @@ training_dataset = load_from_disk(file_path)
 
 # # Push to HuggingFace
 username = "ob11"
-dataset_name = "ai2d-prm-training-data-v1-full-test"
+dataset_name = "ai2d-prm-training-data-v1-mc0.0"
 full_dataset_name = f"{username}/{dataset_name}"
 
 print(f"\n🚀 Pushing to HuggingFace: {full_dataset_name}")
