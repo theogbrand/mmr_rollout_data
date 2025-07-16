@@ -4,8 +4,17 @@ import time
 from datasets import DatasetDict, Dataset, Image
 from PIL import Image as PILImage
 
-input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data_full_v0/final_flattened_trl_format_prm_training_data_500k_mc0.8_v1.jsonl"
+input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/s3_upload_prm_training_data/prm_training_data_full_v1/final_flattened_trl_format_prm_training_data_500k_mc0.0_v1.jsonl"
 
+# parse mc0.0 from input_jsonl_file
+mc_score = input_jsonl_file.split("_mc")[1].split("_v")[0]
+print(f"mc_score: {mc_score}")
+
+# parse prm_training_data_full_v1 from input_jsonl_file
+prm_training_data_full_version = input_jsonl_file.split("/")[-2]
+print(f"prm_training_data_full_version: {prm_training_data_full_version}")
+
+# exit()
 def process_example_local(example):
     """Load images from local files"""
     pil_images = []
@@ -64,7 +73,7 @@ for i in range(min(3, len(training_dataset))):
 # save Arrow files locally
 # dataset.save_to_disk("cache")
 # set num_proc to save faster with multiprocessing
-dataset.save_to_disk("cache", num_proc=4)
+dataset.save_to_disk(f"{prm_training_data_full_version}/mc{mc_score}", num_proc=4)
 
 
 
