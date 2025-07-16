@@ -33,18 +33,20 @@ def process_example_local(example):
 
     return example["images"]
 
-messages = []
-images = []
+messages_flat = []
+images_flat = []
 with open(input_jsonl_file, 'r', encoding='utf8') as f:
     for line in f:
         data = json.loads(line.strip())
-        messages.append(data['messages'])
-        images.append(process_example_local(data))
+        paths = process_example_local(data)
+        for path in paths:
+            images_flat.append(path)  # Single path per row
+            messages_flat.append(data['messages'])
 
-print(f"images[0]: {images[0]}")
-print(f"messages[0]: {messages[0]}")
+print(f"images_flat[0]: {images_flat[0]}")
+print(f"messages_flat[0]: {messages_flat[0]}")
 # create a Dataset instance from dict
-hf_ds = Dataset.from_dict({"image": images, "messages": messages})
+hf_ds = Dataset.from_dict({"image": images_flat, "messages": messages_flat})
 
 print(f"hf_ds after casing Dataset.from_dict: {hf_ds}")
 for i in range(min(3, len(hf_ds))):
