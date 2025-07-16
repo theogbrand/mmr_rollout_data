@@ -43,7 +43,7 @@ with open(input_jsonl_file, 'r', encoding='utf8') as f:
             images_flat.append(path)  # Single path per row
             messages_flat.append(data['messages'])
 
-print(f"images_flat[0]: {images_flat[0]}")
+print(f"images_flat[0]: {images_flat[0]}") # MUST BE A STRING ONLY NOT ARRAY
 print(f"messages_flat[0]: {messages_flat[0]}")
 # create a Dataset instance from dict
 hf_ds = Dataset.from_dict({"image": images_flat, "messages": messages_flat})
@@ -69,3 +69,10 @@ for i in range(min(3, len(training_dataset))):
 # dataset.save_to_disk("cache")
 # set num_proc to save faster with multiprocessing
 dataset.save_to_disk("cache", num_proc=4)
+
+
+
+# TODO (Later): for array of images instead of single images, explore using Sequence before casting to Image()
+# from datasets import Features, Sequence, Image
+# features = Features({"image": Sequence(Image()), "messages": ...})
+# hf_ds = Dataset.from_dict({"image": images, "messages": messages}, features=features)
