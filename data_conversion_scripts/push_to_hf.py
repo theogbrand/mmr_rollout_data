@@ -75,12 +75,6 @@ api.upload_folder(
 # # Convert dataset to OAI messages
 # # need to use list comprehension to keep Pil.Image type, .mape convert image to bytes
 
-# # dataset = dataset.map(
-# #     process_example_local, 
-# #     num_proc=min(32, os.cpu_count() * 4),  # Can use more processes now
-# #     desc="Loading local images"
-# # )
-
 # print("🔍 Verifying image types...")
 # for i in range(min(3, len(dataset))):
 #     img = dataset[i]['images'][0]
