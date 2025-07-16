@@ -1,4 +1,4 @@
-from datasets import Dataset, DatasetDict, Features, Value, Image as HFImage, Sequence
+from datasets import Dataset, DatasetDict, Features, Value, Image as HFImage, Sequence, load_from_disk
 import json
 import os
 from PIL import Image
@@ -12,18 +12,21 @@ else:
     print("HF_TOKEN is set: ", os.getenv("HF_TOKEN")[:5] + "...")
 
 # Load your JSONL file
-file_path = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data_full_v0/"
+file_path = "/mnt/fast10/brandon/mmr_rollout_data/cache/"
 # file_path = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data_full_v0/final_flattened_trl_format_prm_training_data_500k_mc0.8_v1.jsonl"
 # file_path = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data/train/AI2D_final_mc_rollouts_with_all_models_verification_merged_prm_training_data_final_trl_format_mc0.0.jsonl"
 
 from huggingface_hub import HfApi
 
-api = HfApi(token=os.getenv("HF_TOKEN"))
-api.upload_folder(
-    folder_path=file_path,
-    repo_id="ob11/ai2d-prm-training-data-v0-full-test",
-    repo_type="dataset",
-)
+training_dataset = load_from_disk(file_path)
+
+# api = HfApi(token=os.getenv("HF_TOKEN"))
+# api.upload_folder(
+#     folder_path=file_path,
+#     repo_id="ob11/ai2d-prm-training-data-v0-test",
+#     repo_type="dataset",
+#     use_auth_token=os.getenv("HF_TOKEN")
+# )
 
 
 # data = []
@@ -82,21 +85,20 @@ api.upload_folder(
 
 
 # # Push to HuggingFace
-# username = "ob11"
-# dataset_name = "ai2d-prm-training-data-v0-full-test"
-# full_dataset_name = f"{username}/{dataset_name}"
+username = "ob11"
+dataset_name = "ai2d-prm-training-data-v1-full-test"
+full_dataset_name = f"{username}/{dataset_name}"
 
-# print(f"\n🚀 Pushing to HuggingFace: {full_dataset_name}")
+print(f"\n🚀 Pushing to HuggingFace: {full_dataset_name}")
 
-# try:
-#     dataset = Dataset.from_list(dataset)
-#     dataset.push_to_hub(
-#         full_dataset_name,
-#         private=True,  # Set to True if you want it private
-#         token=os.getenv("HF_TOKEN")  # Make sure your HF_TOKEN is set
-#     )
-#     print(f"✅ Dataset successfully pushed to: https://huggingface.co/datasets/{full_dataset_name}")
-#     print(f"🎉 Images are now stored as PIL.Image objects, not byte arrays!")
-# except Exception as e:
-#     print(f"❌ Error pushing to HuggingFace: {e}")
-#     print("Make sure your HF_TOKEN environment variable is set")
+try:
+    training_dataset.push_to_hub(
+        full_dataset_name,
+        private=True,  # Set to True if you want it private
+        token=os.getenv("HF_TOKEN")  # Make sure your HF_TOKEN is set
+    )
+    print(f"✅ Dataset successfully pushed to: https://huggingface.co/datasets/{full_dataset_name}")
+    print(f"🎉 Images are now stored as PIL.Image objects, not byte arrays!")
+except Exception as e:
+    print(f"❌ Error pushing to HuggingFace: {e}")
+    print("Make sure your HF_TOKEN environment variable is set")
