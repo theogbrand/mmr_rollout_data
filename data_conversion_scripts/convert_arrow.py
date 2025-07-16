@@ -14,12 +14,8 @@ def process_example_local(example):
         cwd_abs_path = os.path.abspath(os.getcwd())
         local_path = s3_url.replace("s3://arf-share/arf-ob1-mm-reasoning/", cwd_abs_path + "/")
         if os.path.exists(local_path):
-            print(f"Appending image from {local_path}")
-            # pil_image = PILImage.open(local_path)
-            # pil_images.append(pil_image)
-            # pil_image_rgb = pil_image.convert("RGB")
-            # pil_images.append(pil_image_rgb)
-            pil_images.append(local_path)
+            print(f"Appending image path: {local_path}")
+            pil_images.append(local_path) # we cast to Image() later, here we just append the path
         else: 
             print(f"Warning: Local file not found: {local_path}")
             raise Exception(f"Local file not found: {local_path}")
@@ -39,7 +35,7 @@ with open(input_jsonl_file, 'r', encoding='utf8') as f:
     for line in f:
         data = json.loads(line.strip())
         paths = process_example_local(data)
-        for path in paths:
+        for path in paths: # because paths is currently a list, we assume this "hack" for now.
             images_flat.append(path)  # Single path per row
             messages_flat.append(data['messages'])
 
