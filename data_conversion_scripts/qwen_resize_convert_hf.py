@@ -203,7 +203,7 @@ for i in range(min(3, len(training_dataset))):
 # save Arrow files locally
 # dataset.save_to_disk("cache")
 # set num_proc to save faster with multiprocessing
-dataset.save_to_disk(f"data_conversion_scripts/converted_parquet_datasets/{prm_training_data_full_version}/mc{mc_score}", num_proc=4)
+dataset.save_to_disk(f"data_conversion_scripts/converted_parquet_datasets/qwen_format/{prm_training_data_full_version}/mc{mc_score}", num_proc=4)
 
 
 
