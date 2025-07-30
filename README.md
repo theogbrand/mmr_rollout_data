@@ -41,3 +41,5 @@ TODO:
 
 5. Goal: Finalize data labeling algorithm (Correct: MC+o4-mini agree, where MC Threshold > 0 considered correct step, and o4-mini agrees trace is all correct; Incorrect: o4-mini first incorrect step ONLY)
     - We use ```convert_mc_to_prm_signal.py``` which takes in a threshold value, converts stepwise scores into "+/-" PRM signal, and filters out rollouts with consensus between the three model verification results
+
+6. Run all cells in ```getStats_and_flatten_final_prm_training_data.ipynb``` to get statistics and flatten the final prm training data into a single JSONL file in the format ready for TRL
