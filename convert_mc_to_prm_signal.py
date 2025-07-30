@@ -89,7 +89,11 @@ def save_outputs(outputs, results_file):
 def item2conv_prm(item):
     id = item['rollout_uuid']
     image = item['rollout_image_path']
-    question = item['rollout_question']
+    question_match = re.search(r'<question>(.*?)</question>', item['rollout_question'], re.DOTALL)
+    question = question_match.group(1).strip() if question_match else None
+    if question is None:
+        logger.error(f"ERROR: No question found in rollout_question: {item['rollout_question']}")
+        raise ValueError(f"ERROR: No question found in rollout_question: {item['rollout_question']}")
     full_rollout_response = item['rollout_response'] # this function puts the full rollout response into a conversations format
     steps_with_score = item['rollout_steps_with_score']
 
@@ -577,7 +581,11 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
 
     id = raw_not_null_verification_rollout_item['rollout_uuid']
     image = raw_not_null_verification_rollout_item['rollout_image_path']
-    question = raw_not_null_verification_rollout_item['rollout_question']
+    question_match = re.search(r'<question>(.*?)</question>', raw_not_null_verification_rollout_item['rollout_question'], re.DOTALL)
+    question = question_match.group(1).strip() if question_match else None
+    if question is None:
+        logger.error(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
+        raise ValueError(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
     full_rollout_response = raw_not_null_verification_rollout_item['rollout_response'] # we fetch this so we can label it based on the "first incorrect step" identified by the model_to_identify_first_incorrect_step
     steps_with_score = raw_not_null_verification_rollout_item['rollout_steps_with_score']
     
@@ -707,7 +715,11 @@ def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: di
 
     id = raw_not_null_verification_rollout_item['rollout_uuid']
     image = raw_not_null_verification_rollout_item['rollout_image_path']
-    question = raw_not_null_verification_rollout_item['rollout_question']
+    question_match = re.search(r'<question>(.*?)</question>', raw_not_null_verification_rollout_item['rollout_question'], re.DOTALL)
+    question = question_match.group(1).strip() if question_match else None
+    if question is None:
+        logger.error(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
+        raise ValueError(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
     full_rollout_response = raw_not_null_verification_rollout_item['rollout_response'] # we fetch this so we can label it based on the "first incorrect step" identified by the model_to_identify_first_incorrect_step
     steps_with_score = raw_not_null_verification_rollout_item['rollout_steps_with_score']
     
@@ -1099,7 +1111,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated_rollouts') # ran InfoVQA and AI2D on the base final_combined_MC_and_verification_files without updating the o4_mini_isVerified from False to None for verification_solutions that are missing Section Headers
     parser.add_argument('--save-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/prm_training_data')
-    parser.add_argument('--mc-threshold', type=float, default=0.5) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error. (0.8 comes from GenPRM recommendation for math reasoning)
+    parser.add_argument('--mc-threshold', type=float, default=0.0) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error. (0.8 comes from GenPRM recommendation for math reasoning)
     parser.add_argument('--early-stop', action='store_true', default=True)
     parser.add_argument('--overwrite', action='store_true', default=False)
     parser.add_argument('--consensus-filtering-algo-version', type=str, default='v2') 
