@@ -95,8 +95,13 @@ def item2conv_prm(item):
     question_match = re.search(r'<question>(.*?)</question>', item['rollout_question'], re.DOTALL)
     question = question_match.group(1).strip() if question_match else None
     if question is None:
-        logger.error(f"ERROR: No question found in rollout_question: {item['rollout_question']}")
-        raise ValueError(f"ERROR: No question found in rollout_question: {item['rollout_question']}")
+        if "raven" in item['rollout_question']:
+            question = r"""The puzzle you will receive is presented in a standard Raven's Progressive Matrices format: a 3×3
+ matrix of related images, with the bottom-right cell (the ninth tile) missing. There are eight possible answer choices provided separately, and your task is to decide which of those eight images correctly completes the 3×3 matrix pattern."""
+        else:
+            logger.error(f"ERROR: No question found in rollout_question: {item['rollout_question']}")
+            raise ValueError(f"ERROR: No question found in rollout_question: {item['rollout_question']}")
+    
     full_rollout_response = item['rollout_response'] # this function puts the full rollout response into a conversations format
     steps_with_score = item['rollout_steps_with_score']
 
@@ -587,8 +592,12 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
     question_match = re.search(r'<question>(.*?)</question>', raw_not_null_verification_rollout_item['rollout_question'], re.DOTALL)
     question = question_match.group(1).strip() if question_match else None
     if question is None:
-        logger.error(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
-        raise ValueError(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
+        if "raven" in raw_not_null_verification_rollout_item['rollout_question']:
+            question = r"""The puzzle you will receive is presented in a standard Raven's Progressive Matrices format: a 3×3
+ matrix of related images, with the bottom-right cell (the ninth tile) missing. There are eight possible answer choices provided separately, and your task is to decide which of those eight images correctly completes the 3×3 matrix pattern."""
+        else:
+            logger.error(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
+            raise ValueError(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
     full_rollout_response = raw_not_null_verification_rollout_item['rollout_response'] # we fetch this so we can label it based on the "first incorrect step" identified by the model_to_identify_first_incorrect_step
     steps_with_score = raw_not_null_verification_rollout_item['rollout_steps_with_score']
     
@@ -721,8 +730,12 @@ def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: di
     question_match = re.search(r'<question>(.*?)</question>', raw_not_null_verification_rollout_item['rollout_question'], re.DOTALL)
     question = question_match.group(1).strip() if question_match else None
     if question is None:
-        logger.error(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
-        raise ValueError(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
+        if "raven" in raw_not_null_verification_rollout_item['rollout_question']:
+            question = r"""The puzzle you will receive is presented in a standard Raven's Progressive Matrices format: a 3×3
+ matrix of related images, with the bottom-right cell (the ninth tile) missing. There are eight possible answer choices provided separately, and your task is to decide which of those eight images correctly completes the 3×3 matrix pattern."""
+        else:
+            logger.error(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
+            raise ValueError(f"ERROR: No question found in rollout_question: {raw_not_null_verification_rollout_item['rollout_question']}")
     full_rollout_response = raw_not_null_verification_rollout_item['rollout_response'] # we fetch this so we can label it based on the "first incorrect step" identified by the model_to_identify_first_incorrect_step
     steps_with_score = raw_not_null_verification_rollout_item['rollout_steps_with_score']
     
