@@ -6,6 +6,9 @@ from argparse import ArgumentParser
 from collections import defaultdict
 import re
 from tqdm import tqdm
+import base64
+from io import BytesIO
+from PIL import Image
 
 from constants_and_prompts import PRM_SYSTEM_PROMPT
 
@@ -31,6 +34,18 @@ def setup_logging():
     return logging.getLogger(__name__)
 
 logger = setup_logging()
+
+
+def convert_image_to_base64_string(image_path):
+    """Convert local image to base64 JPEG string."""
+    try:
+        with Image.open(image_path) as image:
+            buffer = BytesIO()
+            image.convert("RGB").save(buffer, format="JPEG")
+            return f"data:image/jpeg;base64,{base64.b64encode(buffer.getvalue()).decode('utf-8')}"
+    except Exception as e:
+        logger.error(f"Error converting image {image_path} to base64: {e}")
+        raise ValueError(f"Error converting image {image_path} to base64: {e}")
 
 
 def transform_image_url_to_s3(image_path):
@@ -891,7 +906,7 @@ def final_filter_and_processing_before_training(final_mc_prm_data): # final_mc_p
         
         # Add image to the first human/user message
         if trl_role == 'user' and not image_added:
-            content.append({"type": "image", "text": None, "index": 0})
+            content.insert(0, {"type": "image", "image": convert_image_to_base64_string(final_mc_prm_data['image_url']), "index": 0}) # Load image from S3/image_url and add the base64 image.
             image_added = True
         
         trl_messages.append({
