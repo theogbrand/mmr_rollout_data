@@ -95,7 +95,7 @@ def item2conv_prm(item):
     question_match = re.search(r'<question>(.*?)</question>', item['rollout_question'], re.DOTALL)
     question = question_match.group(1).strip() if question_match else None
     if question is None:
-        if "raven" in item['rollout_question']:
+        if "Raven" in item['rollout_question']:
             question = r"""The puzzle you will receive is presented in a standard Raven's Progressive Matrices format: a 3×3
  matrix of related images, with the bottom-right cell (the ninth tile) missing. There are eight possible answer choices provided separately, and your task is to decide which of those eight images correctly completes the 3×3 matrix pattern."""
         else:
@@ -592,7 +592,7 @@ def raw_item_to_model_identified_first_incorrect_step(raw_not_null_verification_
     question_match = re.search(r'<question>(.*?)</question>', raw_not_null_verification_rollout_item['rollout_question'], re.DOTALL)
     question = question_match.group(1).strip() if question_match else None
     if question is None:
-        if "raven" in raw_not_null_verification_rollout_item['rollout_question']:
+        if "Raven" in raw_not_null_verification_rollout_item['rollout_question']:
             question = r"""The puzzle you will receive is presented in a standard Raven's Progressive Matrices format: a 3×3
  matrix of related images, with the bottom-right cell (the ninth tile) missing. There are eight possible answer choices provided separately, and your task is to decide which of those eight images correctly completes the 3×3 matrix pattern."""
         else:
@@ -730,7 +730,7 @@ def raw_item_to_uniform_output_format(raw_not_null_verification_rollout_item: di
     question_match = re.search(r'<question>(.*?)</question>', raw_not_null_verification_rollout_item['rollout_question'], re.DOTALL)
     question = question_match.group(1).strip() if question_match else None
     if question is None:
-        if "raven" in raw_not_null_verification_rollout_item['rollout_question']:
+        if "Raven" in raw_not_null_verification_rollout_item['rollout_question']:
             question = r"""The puzzle you will receive is presented in a standard Raven's Progressive Matrices format: a 3×3
  matrix of related images, with the bottom-right cell (the ninth tile) missing. There are eight possible answer choices provided separately, and your task is to decide which of those eight images correctly completes the 3×3 matrix pattern."""
         else:
@@ -1013,9 +1013,9 @@ def main():
     # Get list of files to process
     # files_to_process = [f for f in os.listdir(args.data_dir) if f.endswith('.jsonl')]
     files_to_process = [
-        'vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
-        'InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
-        'CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        # 'vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        # 'InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        # 'CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
         'RAVEN_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
         'dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
         'AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl'
@@ -1127,7 +1127,7 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--data-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/final_combined_MC_and_verification_files_updated_rollouts') # ran InfoVQA and AI2D on the base final_combined_MC_and_verification_files without updating the o4_mini_isVerified from False to None for verification_solutions that are missing Section Headers
     parser.add_argument('--save-dir', type=str, default='/mnt/fast10/brandon/mmr_rollout_data/prm_training_data')
-    parser.add_argument('--mc-threshold', type=float, default=0.01) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error. (0.8 comes from GenPRM recommendation for math reasoning)
+    parser.add_argument('--mc-threshold', type=float, default=0.0) # TODO: try 0.5 and 0.8; and maybe include/exclude nano. Point is to find more "-" points where LLM Judge can agree on it being an error. (0.8 comes from GenPRM recommendation for math reasoning)
     parser.add_argument('--early-stop', action='store_true', default=True)
     parser.add_argument('--overwrite', action='store_true', default=False)
     parser.add_argument('--consensus-filtering-algo-version', type=str, default='v2') 
