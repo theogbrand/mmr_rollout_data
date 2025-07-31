@@ -8,6 +8,10 @@ from io import BytesIO
 from datasets import DatasetDict, Dataset, Image as Image_ds
 from PIL import Image
 
+# Usage: in root directory, run:
+# python data_conversion_scripts/qwen_format_convert_arrow.py 
+
+# TODO: change input_jsonl_file to the path of the jsonl file you want to convert
 input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data/train/mc0.01/final_flattened_trl_format_prm_training_data_500k_mc0.01_v2.jsonl"
 
 # parse mc0.0 from input_jsonl_file
@@ -216,9 +220,7 @@ for i in range(min(3, len(training_dataset))):
 # save Arrow files locally
 # dataset.save_to_disk("cache")
 # set num_proc to save faster with multiprocessing
-dataset.save_to_disk(f"data_conversion_scripts/converted_arrow_datasets/qwen_format/{prm_training_data_full_version}/mc{mc_score}", num_proc=4)
-
-
+dataset.save_to_disk(f"data_conversion_scripts/converted_arrow_datasets/qwen_format/{prm_training_data_full_version}/mc{mc_score}", num_proc=16)
 
 # TODO (Later): for array of images instead of single images, explore using Sequence before casting to Image()
 # from datasets import Features, Sequence, Image
