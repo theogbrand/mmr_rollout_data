@@ -7,6 +7,7 @@ import requests
 from io import BytesIO
 from datasets import DatasetDict, Dataset, Image as Image_ds
 from PIL import Image
+from tqdm import tqdm
 
 # Usage: in root directory, run:
 # python data_conversion_scripts/qwen_format_convert_arrow.py 
@@ -156,43 +157,58 @@ def process_example_local(example):
 
 messages_flat = []
 images_flat = []
+debug_counter = 0
+
+# Count total lines for progress bar
 with open(input_jsonl_file, 'r', encoding='utf8') as f:
-    for line in f:
+    total_lines = sum(1 for _ in f)
+
+with open(input_jsonl_file, 'r', encoding='utf8') as f:
+    for line in tqdm(f, total=total_lines, desc="Processing items"):
         item = json.loads(line.strip())
-        print(f"item: {item}")
-        print(f"item['messages']: {item['messages']}")
+        if debug_counter < 3:
+            print(f"item: {item}")
+            print(f"item['messages']: {item['messages']}")
         messages_flat.append(item['messages']) # just follow original format
 
         # 1. convert from S3 to local path for the ORIGINAL image.
         local_path_item = process_example_local(item) # path in string format
-        print(f"local_path_item: {local_path_item}")
+        if debug_counter < 3:
+            print(f"local_path_item: {local_path_item}")
 
         # 2. Create the new file name first
         base, original_extension = os.path.splitext(local_path_item['image'])
         new_file_name = f"{base}_qwen_resized{original_extension}"
-        print(f"new_file_name: {new_file_name}")
+        if debug_counter < 3:
+            print(f"new_file_name: {new_file_name}")
 
         # 3. Check if the file already exists
         if os.path.exists(new_file_name):
-            print(f"File already exists at {new_file_name}, skipping processing")
+            if debug_counter < 3:
+                print(f"File already exists at {new_file_name}, skipping processing")
         else:
             exit()
             # Load and Resize the image by Qwen's default recommended size, while maintaining maximum original resolution.
             image = fetch_image(local_path_item)
-            print(f"image fetched by Qwen processing functions: {image}")
+            if debug_counter < 3:
+                print(f"image fetched by Qwen processing functions: {image}")
 
             # Save this updated image to the new local path
             image.save(new_file_name)
-            print(f"image saved to {new_file_name}")
+            if debug_counter < 3:
+                print(f"image saved to {new_file_name}")
             
             if os.path.exists(new_file_name):
-                print(f"image successfully saved and exists at {new_file_name}")
+                if debug_counter < 3:
+                    print(f"image successfully saved and exists at {new_file_name}")
             else:
                 print(f"image not saved to {new_file_name}")
                 raise Exception(f"image not saved to {new_file_name}")
 
         # 4. append this updated image path to the images_flat list, to be converted by Image() later
         images_flat.append(new_file_name)
+        
+        debug_counter += 1
 
 print(f"images_flat[0]: {images_flat[0]}") # MUST BE A STRING ONLY NOT ARRAY
 print(f"messages_flat[0]: {messages_flat[0]}") # original message format

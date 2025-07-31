@@ -12,12 +12,12 @@ else:
     print("HF_TOKEN is set: ", os.getenv("HF_TOKEN")[:5] + "...")
 
 # Load your JSONL file
-file_path = "data_conversion_scripts/converted_arrow_datasets/prm_training_data_full_v2_normal_token/mc0.0" 
+file_path = "data_conversion_scripts/converted_arrow_datasets/qwen_format/prm_training_data_full_v2_custom_token/mc0.01" 
 
 training_dataset = load_from_disk(file_path)
 
 username = "ob11"
-dataset_name = "visual-prm-training-data-v2-mc0.0-normal-token" # TODO: to edit to dataset name
+dataset_name = "visual-prm-training-data-v2-mc0.01-custom-token-qwen-format" # TODO: to edit to dataset name
 full_dataset_name = f"{username}/{dataset_name}"
 
 print(f"\n🚀 Pushing to HuggingFace: {full_dataset_name}")
