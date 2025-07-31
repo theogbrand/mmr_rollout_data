@@ -17,7 +17,7 @@ file_path = "data_conversion_scripts/converted_parquet_datasets/prm_training_dat
 training_dataset = load_from_disk(file_path)
 
 username = "ob11"
-dataset_name = "visual-prm-training-data-v1-mc0.0-qwen-format" # TODO: to edit to mc0.0
+dataset_name = "visual-prm-training-data-v2-mc0.0-qwen-format" # TODO: to edit to mc0.0
 full_dataset_name = f"{username}/{dataset_name}"
 
 print(f"\n🚀 Pushing to HuggingFace: {full_dataset_name}")

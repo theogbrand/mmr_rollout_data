@@ -43,3 +43,7 @@ TODO:
     - We use ```convert_mc_to_prm_signal.py``` which takes in a threshold value, converts stepwise scores into "+/-" PRM signal, and filters out rollouts with consensus between the three model verification results
 
 6. Run all cells in ```getStats_and_flatten_final_prm_training_data.ipynb``` to get statistics and flatten the final prm training data into a single JSONL file in the format ready for TRL
+
+7. Run ```convert_arrow.py``` to convert the data to arrow format shards before pushing to HuggingFace.
+    - Note, now we run process_vision_info for Qwen at Training time, in the collate_fn function and use it in the trainer, so we do not need to process the image at this stage
+    - run ```push_to_hf.py``` to push the data to HuggingFace.

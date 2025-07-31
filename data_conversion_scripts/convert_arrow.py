@@ -4,7 +4,11 @@ import time
 from datasets import DatasetDict, Dataset, Image
 from PIL import Image as PILImage
 
-input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/s3_upload_prm_training_data/prm_training_data_full_v1/final_flattened_trl_format_prm_training_data_500k_mc0.0_v1.jsonl"
+# Usage: in root directory, run:
+# python data_conversion_scripts/convert_arrow.py 
+
+# TODO: change input_jsonl_file to the path of the jsonl file you want to convert
+input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data/train/mc0.0/final_flattened_trl_format_prm_training_data_500k_mc0.0_v2.jsonl"
 
 # parse mc0.0 from input_jsonl_file
 mc_score = input_jsonl_file.split("_mc")[1].split("_v")[0]
