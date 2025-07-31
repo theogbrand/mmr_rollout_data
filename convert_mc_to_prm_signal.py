@@ -938,8 +938,7 @@ def final_filter_and_processing_before_training(final_mc_prm_data): # final_mc_p
             # content.insert(0, {"type": "image", "image": convert_image_to_base64_string(final_mc_prm_data['image_url']), "index": 0}) # Load image from S3/image_url and add the base64 image.
             
             # v2 implementation:
-            content = [{"type": "text", "text": "<image>\\n" + msg['value'], "index": None}]
-            
+            content = [{"type": "text", "text": "<image>\n" + msg['value'], "index": None}]
             image_added = True
         
         trl_messages.append({
