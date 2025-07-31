@@ -8,15 +8,19 @@ from io import BytesIO
 from datasets import DatasetDict, Dataset, Image as Image_ds
 from PIL import Image
 
-input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/s3_upload_prm_training_data/prm_training_data_full_v1/final_flattened_trl_format_prm_training_data_500k_mc0.0_v1.jsonl"
+input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data/train/mc0.01/final_flattened_trl_format_prm_training_data_500k_mc0.01_v2.jsonl"
 
 # parse mc0.0 from input_jsonl_file
 mc_score = input_jsonl_file.split("_mc")[1].split("_v")[0]
 print(f"mc_score: {mc_score}")
 
+basename = os.path.basename(input_jsonl_file)
+dataset_version = basename.split(".")[-2][-2:]  # Get last 2 chars before extension
+print(f"dataset_version: {dataset_version}")
+
 # parse prm_training_data_full_v1 from input_jsonl_file
-prm_training_data_full_version = input_jsonl_file.split("/")[-2]
-print(f"prm_training_data_full_version: {prm_training_data_full_version}")
+prm_training_data_full_version = "prm_training_data_full_" + dataset_version
+print(f"output directory filename: {prm_training_data_full_version}")
 
 IMAGE_FACTOR = 28
 MIN_PIXELS = 4 * 28 * 28
@@ -159,21 +163,30 @@ with open(input_jsonl_file, 'r', encoding='utf8') as f:
         local_path_item = process_example_local(item) # path in string format
         print(f"local_path_item: {local_path_item}")
 
-        # 2. Load and Resize the image by Qwen's default recommended size, while maintaining maximum original resolution.
-        image = fetch_image(local_path_item)
-        print(f"image fetched by Qwen processing functions: {image}")
-
-        # 3. save this updated image to a new local path, {original_image_path}_qwen_resized.png in the same directory
+        # 2. Create the new file name first
         base, original_extension = os.path.splitext(local_path_item['image'])
         new_file_name = f"{base}_qwen_resized{original_extension}"
         print(f"new_file_name: {new_file_name}")
-        image.save(new_file_name)
-        print(f"image saved to {new_file_name}")
+
+        # 3. Check if the file already exists
         if os.path.exists(new_file_name):
-            print(f"image successfully saved and exists at {new_file_name}")
+            print(f"File already exists at {new_file_name}, skipping processing")
         else:
-            print(f"image not saved to {new_file_name}")
-            raise Exception(f"image not saved to {new_file_name}")
+            exit()
+            # Load and Resize the image by Qwen's default recommended size, while maintaining maximum original resolution.
+            image = fetch_image(local_path_item)
+            print(f"image fetched by Qwen processing functions: {image}")
+
+            # Save this updated image to the new local path
+            image.save(new_file_name)
+            print(f"image saved to {new_file_name}")
+            
+            if os.path.exists(new_file_name):
+                print(f"image successfully saved and exists at {new_file_name}")
+            else:
+                print(f"image not saved to {new_file_name}")
+                raise Exception(f"image not saved to {new_file_name}")
+
         # 4. append this updated image path to the images_flat list, to be converted by Image() later
         images_flat.append(new_file_name)
 
@@ -203,7 +216,7 @@ for i in range(min(3, len(training_dataset))):
 # save Arrow files locally
 # dataset.save_to_disk("cache")
 # set num_proc to save faster with multiprocessing
-dataset.save_to_disk(f"data_conversion_scripts/converted_parquet_datasets/qwen_format/{prm_training_data_full_version}/mc{mc_score}", num_proc=4)
+dataset.save_to_disk(f"data_conversion_scripts/converted_arrow_datasets/qwen_format/{prm_training_data_full_version}/mc{mc_score}", num_proc=4)
 
 
 

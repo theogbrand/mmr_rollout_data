@@ -22,4 +22,4 @@ training_data_images/*
 cache/*
 s3_upload_prm_training_data/*
 prm_training_data_full_v1/*
-data_conversion_scripts/converted_parquet_datasets/*
+data_conversion_scripts/converted_arrow_datasets/*

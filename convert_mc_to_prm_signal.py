@@ -934,7 +934,12 @@ def final_filter_and_processing_before_training(final_mc_prm_data): # final_mc_p
         
         # Add image to the first human/user message
         if trl_role == 'user' and not image_added:
-            content.insert(0, {"type": "image", "image": convert_image_to_base64_string(final_mc_prm_data['image_url']), "index": 0}) # Load image from S3/image_url and add the base64 image.
+            # v1 implementation:
+            # content.insert(0, {"type": "image", "image": convert_image_to_base64_string(final_mc_prm_data['image_url']), "index": 0}) # Load image from S3/image_url and add the base64 image.
+            
+            # v2 implementation:
+            content = [{"type": "text", "text": "<image>\\n" + msg['value'], "index": None}]
+            
             image_added = True
         
         trl_messages.append({
@@ -1013,9 +1018,9 @@ def main():
     # Get list of files to process
     # files_to_process = [f for f in os.listdir(args.data_dir) if f.endswith('.jsonl')]
     files_to_process = [
-        # 'vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
-        # 'InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
-        # 'CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        'vqav2_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        'InfoVQA_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
+        'CLEVR_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
         'RAVEN_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
         'dvqa_final_mc_rollouts_with_all_models_verification_merged.jsonl', 
         'AI2D_final_mc_rollouts_with_all_models_verification_merged.jsonl'

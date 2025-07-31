@@ -14,9 +14,13 @@ input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data/train
 mc_score = input_jsonl_file.split("_mc")[1].split("_v")[0]
 print(f"mc_score: {mc_score}")
 
+basename = os.path.basename(input_jsonl_file)
+dataset_version = basename.split(".")[-2][-2:]  # Get last 2 chars before extension
+print(f"dataset_version: {dataset_version}")
+
 # parse prm_training_data_full_v1 from input_jsonl_file
-prm_training_data_full_version = input_jsonl_file.split("/")[-2]
-print(f"prm_training_data_full_version: {prm_training_data_full_version}")
+prm_training_data_full_version = "prm_training_data_full_" + dataset_version
+print(f"output directory filename: {prm_training_data_full_version}")
 
 # exit()
 def process_example_local(example):
@@ -77,7 +81,7 @@ for i in range(min(3, len(training_dataset))):
 # save Arrow files locally
 # dataset.save_to_disk("cache")
 # set num_proc to save faster with multiprocessing
-dataset.save_to_disk(f"{prm_training_data_full_version}/mc{mc_score}", num_proc=4)
+dataset.save_to_disk(f"data_conversion_scripts/converted_arrow_datasets/{prm_training_data_full_version}/mc{mc_score}", num_proc=4)
 
 
 
