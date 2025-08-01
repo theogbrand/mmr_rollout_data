@@ -13,7 +13,7 @@ from tqdm import tqdm
 # python data_conversion_scripts/qwen_format_convert_arrow.py 
 
 # TODO: change input_jsonl_file to the path of the jsonl file you want to convert
-input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data/train/mc0.01/final_flattened_trl_format_prm_training_data_500k_mc0.01_v2.jsonl"
+input_jsonl_file = "/mnt/fast10/brandon/mmr_rollout_data/prm_training_data/train/mc0.0/final_flattened_trl_format_prm_training_data_500k_mc0.0_v2.jsonl"
 
 # parse mc0.0 from input_jsonl_file
 mc_score = input_jsonl_file.split("_mc")[1].split("_v")[0]
@@ -140,7 +140,7 @@ def process_example_local(example):
         cwd_abs_path = os.path.abspath(os.getcwd())
         local_path = s3_url.replace("s3://arf-share/arf-ob1-mm-reasoning/", cwd_abs_path + "/")
         if os.path.exists(local_path):
-            print(f"Setting image_path: {local_path}")
+            # print(f"Setting image_path: {local_path}")
             image_path = local_path
         else: 
             print(f"Error: Local file not found: {local_path}")
@@ -236,7 +236,7 @@ for i in range(min(3, len(training_dataset))):
 # save Arrow files locally
 # dataset.save_to_disk("cache")
 # set num_proc to save faster with multiprocessing
-dataset.save_to_disk(f"data_conversion_scripts/converted_arrow_datasets/qwen_format/{prm_training_data_full_version}/mc{mc_score}", num_proc=16)
+dataset.save_to_disk(f"data_conversion_scripts/converted_arrow_datasets/qwen_format/{prm_training_data_full_version}_image_token_prepended_custom_token/mc{mc_score}", num_proc=16)
 
 # TODO (Later): for array of images instead of single images, explore using Sequence before casting to Image()
 # from datasets import Features, Sequence, Image
